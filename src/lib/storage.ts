@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Settings, type Shortcut, type SpeedDialState } from "../types";
+import { DEFAULT_SETTINGS, SCHEMA_VERSION, normalizeShortcutAppearanceByTheme, type Settings, type Shortcut, type SpeedDialState } from "../types";
 import { compactOrder } from "./order";
 import { assertSyncSnapshotFits, type SyncSnapshot } from "./quota";
 
@@ -133,13 +133,16 @@ function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
   const rawOrder = Array.isArray(snapshot[ORDER_KEY]) ? (snapshot[ORDER_KEY] as string[]) : [];
   const compacted = compactOrder(rawOrder, shortcuts);
   const missingIds = Object.keys(shortcuts).filter((id) => !compacted.includes(id));
+  const rawSettings = snapshot[SETTINGS_KEY] && typeof snapshot[SETTINGS_KEY] === "object" ? (snapshot[SETTINGS_KEY] as Partial<Settings>) : {};
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...rawSettings
+  } as Settings;
+  settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
 
   return {
     schemaVersion: typeof snapshot[SCHEMA_KEY] === "number" ? (snapshot[SCHEMA_KEY] as number) : SCHEMA_VERSION,
-    settings: {
-      ...DEFAULT_SETTINGS,
-      ...(snapshot[SETTINGS_KEY] && typeof snapshot[SETTINGS_KEY] === "object" ? (snapshot[SETTINGS_KEY] as Settings) : {})
-    },
+    settings,
     shortcuts,
     shortcutOrder: [...compacted, ...missingIds]
   };

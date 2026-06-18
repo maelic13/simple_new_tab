@@ -10,12 +10,13 @@ Initial release of Simple New Tab.
 - Shortcut create, edit, delete, open, drag reorder, and right-click actions.
 - Right-click shortcut menu with open in new tab, copy URL, reload icon, edit, and remove.
 - Right-click empty-space menu with add and settings.
-- Configurable column count from 2 to 8.
+- Configurable column count from 2 to 12.
+- Relative shortcut size, spacing, and vertical position controls.
 - Optional shortcut hover action buttons.
 - Tile content modes for icon and name, icon only, or name only.
-- Light and dark themes.
-- Shortcut color presets and custom default tile/text colors.
-- Background color presets, custom page color, image URL, SVG text, and local image upload.
+- System, light, and dark themes.
+- Shortcut color presets and custom default tile/text colors remembered separately for light and dark modes.
+- Background color presets, same-size custom page color picker, image URL, SVG text, and local image upload.
 - Chrome sync metadata storage with local IndexedDB asset storage.
 - Startup cache and preload background to reduce new-tab white flash.
 - Icon discovery from page links, web manifests, well-known favicon paths, and favicon fallback.

@@ -39,6 +39,7 @@ button:disabled {
   min-height: 100vh;
   background-position: center;
   background-size: cover;
+  color-scheme: light;
   --surface: #ffffff;
   --surface-muted: #eef2f7;
   --surface-hover: #f8fafc;
@@ -54,10 +55,14 @@ button:disabled {
   --danger-text: #991b1b;
   --success-bg: #f0fdf4;
   --success-text: #166534;
+  --scrollbar-track: #eef2f7;
+  --scrollbar-thumb: #aeb7c4;
   color: var(--text);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .app-shell.theme-dark {
+  color-scheme: dark;
   --surface: #303030;
   --surface-muted: #3f3f3f;
   --surface-hover: #484848;
@@ -73,6 +78,27 @@ button:disabled {
   --danger-text: #fecaca;
   --success-bg: #173923;
   --success-text: #bbf7d0;
+  --scrollbar-track: #252525;
+  --scrollbar-thumb: #9b9b9b;
+}
+
+.app-shell * {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.app-shell *::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.app-shell *::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.app-shell *::-webkit-scrollbar-thumb {
+  border: 3px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
 }
 
 .app-shell.theme-dark .app-scrim {
@@ -229,16 +255,17 @@ button:disabled {
 .dial-grid {
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
-  gap: clamp(12px, 1.6vw, 18px);
-  max-width: 1600px;
-  margin: clamp(72px, 28vh, 320px) auto 0;
+  width: min(100%, var(--grid-max-width, 1600px));
+  gap: var(--shortcut-gap, 16px);
+  margin: var(--grid-top, clamp(72px, 28vh, 320px)) auto 0;
 }
 
 .shortcut-tile {
   position: relative;
+  container-type: inline-size;
   min-width: 0;
   aspect-ratio: 1.18 / 1;
-  min-height: 158px;
+  min-height: var(--shortcut-min-height, 126px);
   border: 1px solid rgb(17 24 39 / 10%);
   border-radius: 8px;
   box-shadow: 0 12px 32px rgb(17 24 39 / 11%);
@@ -285,7 +312,7 @@ button:disabled {
   gap: 7px;
   padding: 12px;
   color: inherit;
-  cursor: grab;
+  cursor: pointer;
   text-align: center;
   text-decoration: none;
   user-select: none;
@@ -298,17 +325,17 @@ button:disabled {
 
 .shortcut-icon-shell {
   display: grid;
-  width: 76px;
-  height: 76px;
-  flex: 0 0 76px;
+  width: min(var(--shortcut-icon-shell, 76px), 42cqw);
+  height: min(var(--shortcut-icon-shell, 76px), 42cqw);
+  flex: 0 0 min(var(--shortcut-icon-shell, 76px), 42cqw);
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
 }
 
 .shortcut-icon {
-  width: 64px;
-  height: 64px;
+  width: min(var(--shortcut-icon-size, 64px), 34cqw);
+  height: min(var(--shortcut-icon-size, 64px), 34cqw);
   object-fit: contain;
 }
 
@@ -336,14 +363,14 @@ button:disabled {
 }
 
 .mode-iconOnly .shortcut-icon-shell {
-  width: 92px;
-  height: 92px;
-  flex-basis: 92px;
+  width: min(var(--shortcut-icon-only-shell, 92px), 50cqw);
+  height: min(var(--shortcut-icon-only-shell, 92px), 50cqw);
+  flex-basis: min(var(--shortcut-icon-only-shell, 92px), 50cqw);
 }
 
 .mode-iconOnly .shortcut-icon {
-  width: 78px;
-  height: 78px;
+  width: min(var(--shortcut-icon-only-size, 78px), 42cqw);
+  height: min(var(--shortcut-icon-only-size, 78px), 42cqw);
 }
 
 .mode-nameOnly .shortcut-link {
@@ -425,8 +452,33 @@ button:disabled {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  padding: 18px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+.settings-panel > .dialog-header {
+  margin-bottom: 0;
+  padding: 18px 18px 0;
+}
+
+.settings-scroll {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 14px;
   overflow: auto;
+  padding: 16px 18px;
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding: 14px 18px 18px;
+  background: var(--surface);
+  box-shadow: 0 -10px 24px rgb(17 24 39 / 8%);
 }
 
 .dialog-header {
@@ -552,7 +604,7 @@ button:disabled {
 }
 
 .theme-toggle {
-  width: min(220px, 100%);
+  width: min(280px, 100%);
 }
 
 .segmented-control button {
@@ -587,6 +639,7 @@ button:disabled {
 }
 
 .swatch {
+  position: relative;
   display: grid;
   width: 32px;
   height: 28px;
@@ -596,6 +649,29 @@ button:disabled {
   font-size: 0.68rem;
   font-weight: 700;
   padding: 0;
+}
+
+.color-swatch {
+  overflow: hidden;
+}
+
+.custom-color-swatch::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgb(17 24 39 / 28%);
+  border-radius: 3px;
+  background: color-mix(in srgb, #ffffff 62%, transparent);
+}
+
+.custom-color-swatch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .settings-section {

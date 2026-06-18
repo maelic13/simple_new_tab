@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Link, Plus, Upload, X } from "lucide-react";
 
 import { fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
@@ -6,13 +6,14 @@ import { canSyncTextAsset } from "../lib/quota";
 import { normalizeShortcutUrl } from "../lib/url";
 import {
   COLOR_PRESETS,
-  DARK_GRAY_TEXT_COLOR,
-  DARK_GRAY_TILE_COLOR,
   DEFAULT_BACKGROUND_COLOR,
-  LIGHT_GRAY_TEXT_COLOR,
-  LIGHT_GRAY_TILE_COLOR,
+  DEFAULT_SHORTCUT_APPEARANCE_BY_THEME,
+  getShortcutAppearance,
+  normalizeShortcutAppearanceByTheme,
   type Background,
+  type ResolvedThemeMode,
   type Settings,
+  type ShortcutAppearanceByTheme,
   type ThemeMode,
   type TileContentMode
 } from "../types";
@@ -21,8 +22,10 @@ type BackgroundMode = Background["kind"] | "upload";
 
 type SettingsPanelProps = {
   settings: Settings;
+  resolvedTheme: ResolvedThemeMode;
   onClose: () => void;
   onSave: (settings: Settings, options?: { applyShortcutDefaults?: boolean }) => Promise<void>;
+  onPreview: (settings: Settings) => void;
   onImport: (file: File) => Promise<void>;
   onExport: () => void;
   onAddShortcut: () => void;
@@ -32,11 +35,25 @@ function getInitialBackgroundMode(background: Background): BackgroundMode {
   return background.kind === "localImageRef" ? "upload" : background.kind;
 }
 
-export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, onAddShortcut }: SettingsPanelProps) {
+function getActiveAppearanceTheme(theme: ThemeMode, resolvedTheme: ResolvedThemeMode): ResolvedThemeMode {
+  return theme === "system" ? resolvedTheme : theme;
+}
+
+export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPreview, onImport, onExport, onAddShortcut }: SettingsPanelProps) {
+  const initialAppearanceTheme = getActiveAppearanceTheme(settings.theme, resolvedTheme);
+  const initialAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings, initialAppearanceTheme);
+  const initialAppearance = initialAppearanceByTheme[initialAppearanceTheme];
   const [columns, setColumns] = useState(settings.columns);
   const [columnsDraft, setColumnsDraft] = useState(String(settings.columns));
-  const [defaultTileColor, setDefaultTileColor] = useState(settings.defaultTileColor);
-  const [defaultTextColor, setDefaultTextColor] = useState(settings.defaultTextColor);
+  const [shortcutSize, setShortcutSize] = useState(settings.shortcutSize);
+  const [shortcutSizeDraft, setShortcutSizeDraft] = useState(String(settings.shortcutSize));
+  const [shortcutSpacing, setShortcutSpacing] = useState(settings.shortcutSpacing);
+  const [shortcutSpacingDraft, setShortcutSpacingDraft] = useState(String(settings.shortcutSpacing));
+  const [gridVerticalPosition, setGridVerticalPosition] = useState(settings.gridVerticalPosition);
+  const [gridVerticalPositionDraft, setGridVerticalPositionDraft] = useState(String(settings.gridVerticalPosition));
+  const [shortcutAppearanceByTheme, setShortcutAppearanceByTheme] = useState<ShortcutAppearanceByTheme>(initialAppearanceByTheme);
+  const [defaultTileColor, setDefaultTileColor] = useState(initialAppearance.tileColor);
+  const [defaultTextColor, setDefaultTextColor] = useState(initialAppearance.textColor);
   const [theme, setTheme] = useState<ThemeMode>(settings.theme);
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
   const [showShortcutActions, setShowShortcutActions] = useState(settings.showShortcutActions);
@@ -45,31 +62,40 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
   const [backgroundFile, setBackgroundFile] = useState<File | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [importMessage, setImportMessage] = useState<string | undefined>();
+  const [saveMessage, setSaveMessage] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const activeAppearanceTheme = getActiveAppearanceTheme(theme, resolvedTheme);
 
-  async function saveNextSettings(nextSettings: Settings, options?: { applyShortcutDefaults?: boolean }) {
+  async function saveNextSettings(nextSettings: Settings, options?: { applyShortcutDefaults?: boolean }): Promise<boolean> {
     setError(undefined);
+    setSaveMessage(undefined);
     setIsSaving(true);
 
     try {
       await onSave(nextSettings, options);
+      setSaveMessage("Saved.");
+      return true;
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to save settings.");
+      return false;
     } finally {
       setIsSaving(false);
     }
   }
 
   function getValidColumns(value: number): number {
-    return Math.min(8, Math.max(2, Math.round(value)));
+    return getValidNumber(value, 2, 12);
+  }
+
+  function getValidNumber(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, Math.round(value)));
   }
 
   function updateColumns(value: number) {
     const nextColumns = getValidColumns(value);
     setColumns(nextColumns);
     setColumnsDraft(String(nextColumns));
-    void saveNextSettings(currentSettings({ columns: nextColumns }));
   }
 
   function commitColumnsDraft() {
@@ -77,35 +103,146 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
     updateColumns(Number.isFinite(parsed) ? parsed : columns);
   }
 
+  function updateShortcutSize(value: number) {
+    const nextValue = getValidNumber(value, 50, 140);
+    setShortcutSize(nextValue);
+    setShortcutSizeDraft(String(nextValue));
+  }
+
+  function commitShortcutSizeDraft() {
+    const parsed = Number(shortcutSizeDraft);
+    updateShortcutSize(Number.isFinite(parsed) ? parsed : shortcutSize);
+  }
+
+  function updateShortcutSpacing(value: number) {
+    const nextValue = getValidNumber(value, 0, 100);
+    setShortcutSpacing(nextValue);
+    setShortcutSpacingDraft(String(nextValue));
+  }
+
+  function commitShortcutSpacingDraft() {
+    const parsed = Number(shortcutSpacingDraft);
+    updateShortcutSpacing(Number.isFinite(parsed) ? parsed : shortcutSpacing);
+  }
+
+  function updateGridVerticalPosition(value: number) {
+    const nextValue = getValidNumber(value, 0, 100);
+    setGridVerticalPosition(nextValue);
+    setGridVerticalPositionDraft(String(nextValue));
+  }
+
+  function commitGridVerticalPositionDraft() {
+    const parsed = Number(gridVerticalPositionDraft);
+    updateGridVerticalPosition(Number.isFinite(parsed) ? parsed : gridVerticalPosition);
+  }
+
   function currentSettings(overrides: Partial<Settings> = {}): Settings {
+    const nextShortcutAppearanceByTheme = {
+      ...DEFAULT_SHORTCUT_APPEARANCE_BY_THEME,
+      ...shortcutAppearanceByTheme,
+      [activeAppearanceTheme]: {
+        tileColor: defaultTileColor,
+        textColor: defaultTextColor
+      }
+    };
+
     return {
       ...settings,
       columns,
+      shortcutSize,
+      shortcutSpacing,
+      gridVerticalPosition,
       defaultTileColor,
       defaultTextColor,
+      shortcutAppearanceByTheme: nextShortcutAppearanceByTheme,
       theme,
       tileContentMode,
       showShortcutActions,
-      background: settings.background,
+      background: getPreviewBackground(),
       ...overrides
     };
   }
 
-  function updateTheme(nextTheme: ThemeMode) {
-    const nextTileColor = nextTheme === "dark" ? DARK_GRAY_TILE_COLOR : LIGHT_GRAY_TILE_COLOR;
-    const nextTextColor = nextTheme === "dark" ? DARK_GRAY_TEXT_COLOR : LIGHT_GRAY_TEXT_COLOR;
+  function getPreviewBackground(): Background {
+    if (backgroundMode === "color") {
+      return { kind: "color", value: backgroundValue || DEFAULT_BACKGROUND_COLOR };
+    }
 
+    if (backgroundMode === "url") {
+      return { kind: "url", value: backgroundValue };
+    }
+
+    if (backgroundMode === "svg") {
+      return backgroundValue.trim() ? { kind: "svg", value: backgroundValue } : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+    }
+
+    return settings.background.kind === "localImageRef" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+  }
+
+  useEffect(() => {
+    onPreview(currentSettings());
+  }, [
+    columns,
+    shortcutSize,
+    shortcutSpacing,
+    gridVerticalPosition,
+    defaultTileColor,
+    defaultTextColor,
+    shortcutAppearanceByTheme,
+    theme,
+    tileContentMode,
+    showShortcutActions,
+    backgroundMode,
+    backgroundValue
+  ]);
+
+  function updateShortcutAppearance(tileColor: string, textColor: string) {
+    setShortcutAppearanceByTheme((current) => ({
+      ...current,
+      [activeAppearanceTheme]: { tileColor, textColor }
+    }));
+    setDefaultTileColor(tileColor);
+    setDefaultTextColor(textColor);
+  }
+
+  function loadShortcutAppearance(theme: ResolvedThemeMode) {
+    const appearance = shortcutAppearanceByTheme[theme] ?? DEFAULT_SHORTCUT_APPEARANCE_BY_THEME[theme];
+    setDefaultTileColor(appearance.tileColor);
+    setDefaultTextColor(appearance.textColor);
+  }
+
+  useEffect(() => {
+    if (theme === "system") {
+      loadShortcutAppearance(resolvedTheme);
+    }
+  }, [resolvedTheme, theme]);
+
+  function updateTheme(nextTheme: ThemeMode) {
     setTheme(nextTheme);
-    setDefaultTileColor(nextTileColor);
-    setDefaultTextColor(nextTextColor);
-    void saveNextSettings(
-      currentSettings({
-        theme: nextTheme,
-        defaultTileColor: nextTileColor,
-        defaultTextColor: nextTextColor
-      }),
-      { applyShortcutDefaults: true }
-    );
+    loadShortcutAppearance(getActiveAppearanceTheme(nextTheme, resolvedTheme));
+  }
+
+  async function handleApply() {
+    setError(undefined);
+
+    try {
+      const background = await buildBackground();
+      const nextSettings = currentSettings({ background });
+      const nextAppearanceTheme = getActiveAppearanceTheme(nextSettings.theme, resolvedTheme);
+      const previousAppearance = getShortcutAppearance(settings, nextAppearanceTheme);
+      const nextAppearance = getShortcutAppearance(nextSettings, nextAppearanceTheme);
+      const shouldApplyShortcutDefaults =
+        nextSettings.theme !== settings.theme ||
+        nextAppearance.tileColor !== previousAppearance.tileColor ||
+        nextAppearance.textColor !== previousAppearance.textColor;
+
+      const didSave = await saveNextSettings(nextSettings, shouldApplyShortcutDefaults ? { applyShortcutDefaults: true } : undefined);
+      if (didSave) {
+        onClose();
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to save settings.");
+    }
   }
 
   async function buildBackground(fileOverride?: File): Promise<Background> {
@@ -180,9 +317,13 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
           </button>
         </div>
 
-        <section className="settings-section">
+        <div className="settings-scroll">
+          <section className="settings-section">
           <h3>Theme</h3>
-          <div className="segmented-control two theme-toggle" aria-label="Theme">
+          <div className="segmented-control three theme-toggle" aria-label="Theme">
+            <button type="button" className={theme === "system" ? "active" : ""} onClick={() => updateTheme("system")}>
+              System
+            </button>
             <button type="button" className={theme === "light" ? "active" : ""} onClick={() => updateTheme("light")}>
               Light
             </button>
@@ -228,7 +369,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
               <input
                 type="range"
                 min="2"
-                max="8"
+                max="12"
                 value={columns}
                 aria-label="Columns slider"
                 onChange={(event) => updateColumns(Number(event.target.value))}
@@ -237,7 +378,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                 className="number-input"
                 type="number"
                 min="2"
-                max="8"
+                max="12"
                 value={columnsDraft}
                 aria-label="Column count"
                 onChange={(event) => setColumnsDraft(event.target.value)}
@@ -249,7 +390,97 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                 }}
               />
             </div>
-            <small>Allowed: 2-8 columns.</small>
+            <small>Allowed: 2-12 columns.</small>
+          </label>
+
+          <label className="field">
+            <span>Shortcut size</span>
+            <div className="columns-control">
+              <input
+                type="range"
+                min="50"
+                max="140"
+                value={shortcutSize}
+                aria-label="Shortcut size slider"
+                onChange={(event) => updateShortcutSize(Number(event.target.value))}
+              />
+              <input
+                className="number-input"
+                type="number"
+                min="50"
+                max="140"
+                value={shortcutSizeDraft}
+                aria-label="Shortcut size"
+                onChange={(event) => setShortcutSizeDraft(event.target.value)}
+                onBlur={commitShortcutSizeDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </div>
+            <small>Relative size, 50-140.</small>
+          </label>
+
+          <label className="field">
+            <span>Shortcut spacing</span>
+            <div className="columns-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={shortcutSpacing}
+                aria-label="Shortcut spacing slider"
+                onChange={(event) => updateShortcutSpacing(Number(event.target.value))}
+              />
+              <input
+                className="number-input"
+                type="number"
+                min="0"
+                max="100"
+                value={shortcutSpacingDraft}
+                aria-label="Shortcut spacing"
+                onChange={(event) => setShortcutSpacingDraft(event.target.value)}
+                onBlur={commitShortcutSpacingDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </div>
+            <small>Relative gap, 0-100.</small>
+          </label>
+
+          <label className="field">
+            <span>Vertical position</span>
+            <div className="columns-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={gridVerticalPosition}
+                aria-label="Vertical position slider"
+                onChange={(event) => updateGridVerticalPosition(Number(event.target.value))}
+              />
+              <input
+                className="number-input"
+                type="number"
+                min="0"
+                max="100"
+                value={gridVerticalPositionDraft}
+                aria-label="Vertical position"
+                onChange={(event) => setGridVerticalPositionDraft(event.target.value)}
+                onBlur={commitGridVerticalPositionDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </div>
+            <small>0 is higher, 100 is lower.</small>
           </label>
 
           <label className="field">
@@ -259,7 +490,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
               onChange={(event) => {
                 const nextMode = event.target.value as TileContentMode;
                 setTileContentMode(nextMode);
-                void saveNextSettings(currentSettings({ tileContentMode: nextMode }));
               }}
             >
               <option value="iconAndName">Icon and name</option>
@@ -279,7 +509,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                 onChange={(event) => {
                   const nextValue = event.target.checked;
                   setShowShortcutActions(nextValue);
-                  void saveNextSettings(currentSettings({ showShortcutActions: nextValue }));
                 }}
               />
               <span>
@@ -300,15 +529,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                     aria-label={preset.name}
                     style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
                     onClick={() => {
-                      setDefaultTileColor(preset.tileColor);
-                      setDefaultTextColor(preset.textColor);
-                      void saveNextSettings(
-                        currentSettings({
-                          defaultTileColor: preset.tileColor,
-                          defaultTextColor: preset.textColor
-                        }),
-                        { applyShortcutDefaults: true }
-                      );
+                      updateShortcutAppearance(preset.tileColor, preset.textColor);
                     }}
                   >
                     <span>Aa</span>
@@ -325,8 +546,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                   value={defaultTileColor}
                   onChange={(event) => {
                     const value = event.target.value;
-                    setDefaultTileColor(value);
-                    void saveNextSettings(currentSettings({ defaultTileColor: value }), { applyShortcutDefaults: true });
+                    updateShortcutAppearance(value, defaultTextColor);
                   }}
                 />
               </label>
@@ -338,8 +558,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                   value={defaultTextColor}
                   onChange={(event) => {
                     const value = event.target.value;
-                    setDefaultTextColor(value);
-                    void saveNextSettings(currentSettings({ defaultTextColor: value }), { applyShortcutDefaults: true });
+                    updateShortcutAppearance(defaultTileColor, value);
                   }}
                 />
               </label>
@@ -356,8 +575,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                 className={backgroundMode === "color" ? "active" : ""}
                 onClick={() => {
                   setBackgroundMode("color");
-                  const nextBackground = { kind: "color" as const, value: backgroundValue || DEFAULT_BACKGROUND_COLOR };
-                  void saveNextSettings(currentSettings({ background: nextBackground }));
                 }}
               >
                 Color
@@ -384,32 +601,26 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                   <button
                     key={preset.name}
                     type="button"
-                    className="swatch"
+                    className="swatch color-swatch"
                     title={preset.name}
                     aria-label={`Background ${preset.name}`}
-                    style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
+                    style={{ backgroundColor: preset.tileColor }}
                     onClick={() => {
                       setBackgroundValue(preset.tileColor);
-                      void saveNextSettings(currentSettings({ background: { kind: "color", value: preset.tileColor } }));
                     }}
-                  >
-                    <span>Aa</span>
-                  </button>
+                  />
                 ))}
+                <label className="swatch color-swatch custom-color-swatch" title="Custom" aria-label="Custom background color" style={{ backgroundColor: backgroundValue }}>
+                  <input
+                    type="color"
+                    value={backgroundValue}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setBackgroundValue(value);
+                    }}
+                  />
+                </label>
               </div>
-
-              <label className="field color-field">
-                <span>Page color</span>
-                <input
-                  type="color"
-                  value={backgroundValue}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setBackgroundValue(value);
-                    void saveNextSettings(currentSettings({ background: { kind: "color", value } }));
-                  }}
-                />
-              </label>
             </div>
           ) : null}
 
@@ -419,9 +630,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
               <input
                 value={backgroundValue}
                 onChange={(event) => setBackgroundValue(event.target.value)}
-                onBlur={() => {
-                  void buildBackground().then((background) => saveNextSettings(currentSettings({ background })));
-                }}
                 placeholder="https://example.com/background.jpg"
               />
             </label>
@@ -433,9 +641,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
               <textarea
                 value={backgroundValue}
                 onChange={(event) => setBackgroundValue(event.target.value)}
-                onBlur={() => {
-                  void buildBackground().then((background) => saveNextSettings(currentSettings({ background })));
-                }}
                 rows={7}
                 spellCheck={false}
               />
@@ -451,17 +656,25 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   setBackgroundFile(file);
-                  if (file) {
-                    void buildBackground(file).then((background) => saveNextSettings(currentSettings({ background })));
-                  }
                 }}
               />
             </label>
           ) : null}
         </section>
 
-        {error ? <p className="form-error">{error}</p> : null}
-        {isSaving ? <p className="form-status">Saving...</p> : null}
+          {error ? <p className="form-error">{error}</p> : null}
+          {saveMessage ? <p className="form-success">{saveMessage}</p> : null}
+          {isSaving ? <p className="form-status">Saving...</p> : null}
+        </div>
+
+        <div className="settings-footer">
+          <button className="button secondary" type="button" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </button>
+          <button className="button primary" type="button" onClick={() => void handleApply()} disabled={isSaving}>
+            Apply
+          </button>
+        </div>
       </section>
     </aside>
   );

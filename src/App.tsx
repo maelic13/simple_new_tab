@@ -9,11 +9,23 @@ import { useSpeedDialStore } from "./hooks/useSpeedDialStore";
 import { svgToDataUrl } from "./lib/assets";
 import { discoverIcons } from "./lib/iconDiscovery";
 import { exportState, parseImportFile } from "./lib/importExport";
-import type { Shortcut } from "./types";
+import { getShortcutAppearance, type Settings, type Shortcut, type ThemeMode } from "./types";
 import { DeleteDialog } from "./components/DeleteDialog";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ShortcutModal } from "./components/ShortcutModal";
 import { ShortcutTile } from "./components/ShortcutTile";
+
+function getSystemTheme(): "light" | "dark" {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function resolveTheme(theme: ThemeMode, systemTheme: "light" | "dark"): "light" | "dark" {
+  return theme === "system" ? systemTheme : theme;
+}
 
 function App() {
   const { state, isLoading, error, actions, refresh } = useSpeedDialStore();
@@ -25,18 +37,44 @@ function App() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDraggingShortcut, setIsDraggingShortcut] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; shortcut?: Shortcut } | undefined>();
+  const [draftSettings, setDraftSettings] = useState<Settings | undefined>();
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => getSystemTheme());
   const suppressOpenUntil = useRef(0);
-  const columns = useResponsiveColumns(state.settings.columns);
-  const backgroundAsset = useAssetData(state.settings.background.kind === "localImageRef" ? state.settings.background.value : undefined);
+  const effectiveSettings = draftSettings ?? state.settings;
+  const resolvedTheme = resolveTheme(effectiveSettings.theme, systemTheme);
+  const activeShortcutAppearance = getShortcutAppearance(effectiveSettings, resolvedTheme);
+  const displaySettings = {
+    ...effectiveSettings,
+    defaultTileColor: activeShortcutAppearance.tileColor,
+    defaultTextColor: activeShortcutAppearance.textColor
+  };
+  const columns = useResponsiveColumns(displaySettings.columns, displaySettings.shortcutSize, displaySettings.shortcutSpacing);
+  const backgroundAsset = useAssetData(displaySettings.background.kind === "localImageRef" ? displaySettings.background.value : undefined);
 
   const shortcuts = useMemo(
-    () => state.shortcutOrder.map((id) => state.shortcuts[id]).filter((shortcut): shortcut is Shortcut => Boolean(shortcut)),
-    [state.shortcutOrder, state.shortcuts]
+    () => {
+      const items = state.shortcutOrder.map((id) => state.shortcuts[id]).filter((shortcut): shortcut is Shortcut => Boolean(shortcut));
+      return items.map((shortcut) => ({
+        ...shortcut,
+        tileColor: displaySettings.defaultTileColor,
+        textColor: displaySettings.defaultTextColor
+      }));
+    },
+    [displaySettings.defaultTextColor, displaySettings.defaultTileColor, state.shortcutOrder, state.shortcuts]
   );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemTheme(mediaQuery.matches ? "dark" : "light");
+
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (!contextMenu) {
@@ -67,7 +105,7 @@ function App() {
   }, [contextMenu]);
 
   const pageStyle = useMemo(() => {
-    const background = state.settings.background;
+    const background = displaySettings.background;
 
     if (background.kind === "color") {
       return { backgroundColor: background.value };
@@ -85,11 +123,32 @@ function App() {
       return { backgroundImage: `url("${backgroundAsset}")` };
     }
 
-    return { backgroundColor: state.settings.defaultTileColor };
-  }, [backgroundAsset, state.settings.background, state.settings.defaultTileColor]);
+    return { backgroundColor: displaySettings.defaultTileColor };
+  }, [backgroundAsset, displaySettings.background, displaySettings.defaultTileColor]);
+
+  const gridStyle = useMemo(() => {
+    const sizeScale = Math.min(1.4, Math.max(0.5, displaySettings.shortcutSize / 100));
+    const gap = Math.round((Math.min(100, Math.max(0, displaySettings.shortcutSpacing)) / 100) * 32);
+    const tileWidth = Math.round(190 * sizeScale);
+    const maxWidth = columns * tileWidth + Math.max(0, columns - 1) * gap;
+    const verticalVh = Math.round(8 + Math.min(100, Math.max(0, displaySettings.gridVerticalPosition)) * 0.35);
+
+    return {
+      "--columns": columns,
+      "--grid-max-width": `${maxWidth}px`,
+      "--shortcut-gap": `${gap}px`,
+      "--grid-top": `clamp(56px, ${verticalVh}vh, 320px)`,
+      "--shortcut-min-height": `${Math.round(126 * sizeScale)}px`,
+      "--shortcut-icon-shell": `${Math.round(76 * sizeScale)}px`,
+      "--shortcut-icon-size": `${Math.round(64 * sizeScale)}px`,
+      "--shortcut-icon-only-shell": `${Math.round(92 * sizeScale)}px`,
+      "--shortcut-icon-only-size": `${Math.round(78 * sizeScale)}px`
+    } as React.CSSProperties;
+  }, [columns, displaySettings.gridVerticalPosition, displaySettings.shortcutSize, displaySettings.shortcutSpacing]);
 
   function openNewShortcutModal() {
     setContextMenu(undefined);
+    setDraftSettings(undefined);
     setEditingShortcut(undefined);
     setIsShortcutModalOpen(true);
     setSettingsOpen(false);
@@ -105,9 +164,20 @@ function App() {
 
   function openSettingsPanel() {
     setContextMenu(undefined);
+    setDraftSettings(state.settings);
     setSettingsOpen(true);
     setIsShortcutModalOpen(false);
     setActionError(undefined);
+  }
+
+  function closeSettingsPanel() {
+    setDraftSettings(undefined);
+    setSettingsOpen(false);
+  }
+
+  async function saveSettings(settings: Settings, options?: { applyShortcutDefaults?: boolean }) {
+    await actions.updateSettings(settings, options);
+    setDraftSettings(settings);
   }
 
   function openPageContextMenu(event: React.MouseEvent) {
@@ -234,9 +304,9 @@ function App() {
   }
 
   return (
-    <main className={`app-shell theme-${state.settings.theme}`} style={pageStyle}>
+    <main className={`app-shell theme-${resolvedTheme}`} style={pageStyle}>
       <div className="app-scrim" onContextMenu={openPageContextMenu}>
-        <button className="icon-button settings-entry" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+        <button className="icon-button settings-entry" title="Settings" aria-label="Settings" onClick={openSettingsPanel}>
           <SettingsIcon size={18} />
         </button>
 
@@ -249,14 +319,14 @@ function App() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
             <SortableContext items={state.shortcutOrder} strategy={rectSortingStrategy}>
-              <section className="dial-grid" style={{ "--columns": columns } as React.CSSProperties}>
+              <section className="dial-grid" style={gridStyle}>
                 {shortcuts.map((shortcut) => (
                   <ShortcutTile
                     key={shortcut.id}
                     shortcut={shortcut}
-                    contentMode={state.settings.tileContentMode}
+                    contentMode={displaySettings.tileContentMode}
                     suppressOpen={isDraggingShortcut}
-                    showActions={state.settings.showShortcutActions}
+                    showActions={displaySettings.showShortcutActions}
                     onEdit={openEditShortcutModal}
                     onDelete={setDeletingShortcut}
                     onOpen={openShortcut}
@@ -327,8 +397,8 @@ function App() {
       {isShortcutModalOpen ? (
         <ShortcutModal
           shortcut={editingShortcut}
-          defaultTileColor={state.settings.defaultTileColor}
-          defaultTextColor={state.settings.defaultTextColor}
+          defaultTileColor={displaySettings.defaultTileColor}
+          defaultTextColor={displaySettings.defaultTextColor}
           onClose={() => setIsShortcutModalOpen(false)}
           onSave={actions.upsertShortcut}
         />
@@ -337,8 +407,10 @@ function App() {
       {settingsOpen ? (
         <SettingsPanel
           settings={state.settings}
-          onClose={() => setSettingsOpen(false)}
-          onSave={actions.updateSettings}
+          resolvedTheme={resolvedTheme}
+          onClose={closeSettingsPanel}
+          onSave={saveSettings}
+          onPreview={setDraftSettings}
           onImport={handleImport}
           onExport={handleExport}
           onAddShortcut={openNewShortcutModal}

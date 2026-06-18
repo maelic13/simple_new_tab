@@ -1,5 +1,5 @@
 type CachedSettings = {
-  theme?: "light" | "dark";
+  theme?: "system" | "light" | "dark";
   background?: { kind?: string; value?: string };
 };
 
@@ -16,8 +16,9 @@ function svgToDataUrl(text: string): string {
 function applyBackground(settings: CachedSettings): void {
   const background = settings.background;
   const targets = [document.documentElement, document.body, document.getElementById("root")].filter((element): element is HTMLElement => Boolean(element));
+  const resolvedTheme = settings.theme === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : settings.theme;
 
-  if (settings.theme === "dark") {
+  if (resolvedTheme === "dark") {
     document.documentElement.classList.add("preload-theme-dark");
   }
 

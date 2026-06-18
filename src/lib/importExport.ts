@@ -5,6 +5,7 @@ import {
   DARK_GRAY_TEXT_COLOR,
   DARK_GRAY_TILE_COLOR,
   SCHEMA_VERSION,
+  normalizeShortcutAppearanceByTheme,
   type Settings,
   type Shortcut,
   type SpeedDialExport,
@@ -156,7 +157,8 @@ export function parseNativeImport(value: unknown): SpeedDialState {
     throw new Error("Unsupported import file.");
   }
 
-  const settings = isRecord(value.settings) ? ({ ...DEFAULT_SETTINGS, ...value.settings } as Settings) : DEFAULT_SETTINGS;
+  const settings = isRecord(value.settings) ? ({ ...DEFAULT_SETTINGS, ...value.settings } as Settings) : { ...DEFAULT_SETTINGS };
+  settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
   const shortcuts: Record<string, Shortcut> = {};
   const shortcutOrder: string[] = [];
 
@@ -216,6 +218,10 @@ export function parseLegacyShortcutExport(value: unknown): SpeedDialExport {
       background: { kind: "color", value: DEFAULT_SETTINGS.background.value },
       defaultTileColor: DARK_GRAY_TILE_COLOR,
       defaultTextColor: DARK_GRAY_TEXT_COLOR,
+      shortcutAppearanceByTheme: {
+        ...DEFAULT_SETTINGS.shortcutAppearanceByTheme,
+        dark: { tileColor: DARK_GRAY_TILE_COLOR, textColor: DARK_GRAY_TEXT_COLOR }
+      },
       tileContentMode: "iconAndName"
     },
     shortcuts
