@@ -22,13 +22,13 @@ Uploaded raster images are stored locally in the browser's IndexedDB storage on 
 
 The extension uses this data only to provide and improve its single purpose: displaying and managing the user's custom speed-dial new tab page.
 
-The extension may fetch website icons, favicons, web manifest icons, and user-configured image URLs to display shortcut icons or page backgrounds.
+The extension may load user-facing image resources, such as the current tab favicon, favicon fallback images, user-selected shortcut icon URLs, and user-configured background image URLs. These resources are used only to display shortcut icons and page backgrounds.
 
 ## Data Sharing
 
 Simple New Tab does not sell user data.
 
-Simple New Tab does not transfer user data to third parties, except where required by the browser platform to provide extension storage, sync, backup, or user-requested image/icon loading functionality.
+Simple New Tab does not transfer user data to third parties, except where required by the browser platform to provide extension storage, sync, backup, or user-requested image/icon loading functionality. For example, if a user chooses a remote icon URL or background image URL, the browser loads that image from the selected remote source.
 
 ## Remote Code
 

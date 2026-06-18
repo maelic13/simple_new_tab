@@ -32,11 +32,13 @@ Initial release of Simple New Tab.
 - Legacy background import migration for backups that only contain the older single `background` value.
 - Reset defaults action that restores default settings, clears shortcuts, and shows first-run setup again.
 - Extension icon assets for 16, 32, 48, and 128 px.
+- Minimal required permissions without broad host access.
 
 ### Known Limitations
 
 - Raster uploads remain local and do not sync.
 - Local raster background uploads are not portable in exported backups and reset to the default color.
+- Some websites may expose fewer icon candidates because the extension does not request broad host permissions.
 - Remote background images can still appear after the browser/network cache resolves them.
 - A browser-level blank first frame may still be visible before extension document code runs.
 - Save As behavior for downloads depends on the browser and its download settings.

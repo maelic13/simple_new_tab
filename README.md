@@ -128,4 +128,5 @@ The ZIP should contain `manifest.json` at its root.
 - Chrome sync propagates JSON settings and shortcut metadata. Local raster image files are device-local unless moved by an explicit export/import backup.
 - Manually loaded unpacked extensions can use sync within the same extension ID/install context, but Chrome Web Store distribution is the reliable path for stable cross-device extension identity.
 - The browser controls whether export opens a native Save As picker. The extension requests Save As through the File System Access API or `chrome.downloads.download({ saveAs: true })` when available.
+- The extension intentionally avoids broad host permissions. Some websites may expose fewer icon candidates if their metadata cannot be fetched cross-origin; favicon fallback and user-selected icon URLs still work.
 - Some browsers, including Brave, may not treat extension-provided new-tab pages exactly like the native new-tab page for browser UI rules such as “show bookmarks bar only on new tab.”
