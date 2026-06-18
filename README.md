@@ -94,6 +94,8 @@ Simple New Tab uses `chrome.storage.sync` for compact JSON metadata:
 - shortcut order
 - shortcut name, URL, icon reference, and colors
 
+Settings are split into compact sync entries so every JSON setting is carried through Chrome sync, including light/dark background preferences. Shortcut records are stored separately to avoid one large sync item.
+
 Uploaded raster images are stored locally in IndexedDB and do not sync through Chrome sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. Extension exports include local uploaded shortcut icons; local raster background uploads stay on this device and reset to the default color in exported backups.
 
 Background images use cover/fill sizing, centered on the page.
@@ -123,6 +125,7 @@ The ZIP should contain `manifest.json` at its root.
 ## Browser Notes
 
 - Chrome sync requires the browser profile to be signed in and extension sync enabled.
+- Chrome sync propagates JSON settings and shortcut metadata. Local raster image files are device-local unless moved by an explicit export/import backup.
 - Manually loaded unpacked extensions can use sync within the same extension ID/install context, but Chrome Web Store distribution is the reliable path for stable cross-device extension identity.
 - The browser controls whether export opens a native Save As picker. The extension requests Save As through the File System Access API or `chrome.downloads.download({ saveAs: true })` when available.
 - Some browsers, including Brave, may not treat extension-provided new-tab pages exactly like the native new-tab page for browser UI rules such as “show bookmarks bar only on new tab.”

@@ -4,6 +4,8 @@ import { assertSyncSnapshotFits, type SyncSnapshot } from "./quota";
 
 const SCHEMA_KEY = "app:schemaVersion";
 const SETTINGS_KEY = "settings";
+const BACKGROUND_LIGHT_KEY = "settings:background:light";
+const BACKGROUND_DARK_KEY = "settings:background:dark";
 const ORDER_KEY = "shortcutOrder";
 const SHORTCUT_PREFIX = "shortcut:";
 const FALLBACK_STORAGE_KEY = "new-tab-speed-dial:sync";
@@ -14,6 +16,25 @@ type ChangeListener = () => void;
 
 function getShortcutKey(id: string): string {
   return `${SHORTCUT_PREFIX}${id}`;
+}
+
+function hasOwn(record: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getSettingsSetItems(settings: Settings): SyncSnapshot {
+  const { backgroundByTheme: _backgroundByTheme, ...syncSettings } = settings;
+
+  return {
+    [SCHEMA_KEY]: SCHEMA_VERSION,
+    [SETTINGS_KEY]: syncSettings,
+    [BACKGROUND_LIGHT_KEY]: settings.backgroundByTheme.light,
+    [BACKGROUND_DARK_KEY]: settings.backgroundByTheme.dark
+  };
 }
 
 function isChromeSyncAvailable(): boolean {
@@ -134,6 +155,14 @@ function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
   const compacted = compactOrder(rawOrder, shortcuts);
   const missingIds = Object.keys(shortcuts).filter((id) => !compacted.includes(id));
   const rawSettings = snapshot[SETTINGS_KEY] && typeof snapshot[SETTINGS_KEY] === "object" ? (snapshot[SETTINGS_KEY] as Partial<Settings>) : {};
+  const rawBackgroundByTheme = hasOwn(rawSettings, "backgroundByTheme") ? rawSettings.backgroundByTheme : undefined;
+  const splitBackgroundByTheme =
+    isObject(snapshot[BACKGROUND_LIGHT_KEY]) || isObject(snapshot[BACKGROUND_DARK_KEY])
+      ? ({
+          light: isObject(snapshot[BACKGROUND_LIGHT_KEY]) ? snapshot[BACKGROUND_LIGHT_KEY] : rawBackgroundByTheme?.light,
+          dark: isObject(snapshot[BACKGROUND_DARK_KEY]) ? snapshot[BACKGROUND_DARK_KEY] : rawBackgroundByTheme?.dark
+        } as Settings["backgroundByTheme"])
+      : undefined;
   const settings = {
     ...DEFAULT_SETTINGS,
     ...rawSettings
@@ -141,7 +170,7 @@ function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
   settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
   settings.backgroundByTheme = normalizeBackgroundByTheme({
     background: settings.background,
-    ...(Object.prototype.hasOwnProperty.call(rawSettings, "backgroundByTheme") ? { backgroundByTheme: rawSettings.backgroundByTheme } : {})
+    ...(splitBackgroundByTheme ? { backgroundByTheme: splitBackgroundByTheme } : rawBackgroundByTheme ? { backgroundByTheme: rawBackgroundByTheme } : {})
   });
 
   return {
@@ -161,8 +190,7 @@ export function loadCachedState(): SpeedDialState | undefined {
 
 function getReplaceStatePayload(current: SyncSnapshot, nextState: SpeedDialState): { setItems: SyncSnapshot; removeKeys: string[] } {
   const setItems: SyncSnapshot = {
-    [SCHEMA_KEY]: SCHEMA_VERSION,
-    [SETTINGS_KEY]: nextState.settings,
+    ...getSettingsSetItems(nextState.settings),
     [ORDER_KEY]: nextState.shortcutOrder
   };
 
@@ -195,10 +223,7 @@ export async function loadState(): Promise<SpeedDialState> {
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  await writeSync({
-    [SCHEMA_KEY]: SCHEMA_VERSION,
-    [SETTINGS_KEY]: settings
-  });
+  await writeSync(getSettingsSetItems(settings));
 }
 
 export async function saveShortcut(shortcut: Shortcut, order: string[]): Promise<void> {

@@ -23,6 +23,7 @@ Initial release of Simple New Tab.
 - Shortcut color presets and custom default tile/text colors remembered separately for light and dark modes.
 - Background color presets, custom page color picker, image URL, and local image/SVG upload, remembered separately for light and dark modes.
 - Chrome sync metadata storage with local IndexedDB asset storage.
+- Split sync storage for settings and per-theme background preferences so all JSON settings sync without depending on one large settings entry.
 - Startup cache and preload background to reduce new-tab white flash.
 - Icon discovery from page links, web manifests, well-known favicon paths, and favicon fallback.
 - Icon filtering that only shows browser-renderable candidates.
