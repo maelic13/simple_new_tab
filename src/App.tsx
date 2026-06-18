@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { closestCenter, DndContext, type DragEndEvent, type DragStartEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Pencil, Plus, Settings as SettingsIcon, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Pencil, Plus, RefreshCw, Settings as SettingsIcon, Trash2 } from "lucide-react";
 
 import { useAssetData } from "./hooks/useAssetData";
 import { useResponsiveColumns } from "./hooks/useResponsiveColumns";
 import { useSpeedDialStore } from "./hooks/useSpeedDialStore";
 import { svgToDataUrl } from "./lib/assets";
+import { discoverIcons } from "./lib/iconDiscovery";
 import { exportState, parseImportFile } from "./lib/importExport";
 import type { Shortcut } from "./types";
 import { DeleteDialog } from "./components/DeleteDialog";
@@ -102,6 +103,13 @@ function App() {
     setActionError(undefined);
   }
 
+  function openSettingsPanel() {
+    setContextMenu(undefined);
+    setSettingsOpen(true);
+    setIsShortcutModalOpen(false);
+    setActionError(undefined);
+  }
+
   function openPageContextMenu(event: React.MouseEvent) {
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY });
@@ -146,6 +154,48 @@ function App() {
     }
 
     window.location.href = shortcut.url;
+  }
+
+  function openShortcutInNewTab(shortcut: Shortcut) {
+    setContextMenu(undefined);
+    window.open(shortcut.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyShortcutUrl(shortcut: Shortcut) {
+    setContextMenu(undefined);
+    setActionError(undefined);
+
+    try {
+      await navigator.clipboard.writeText(shortcut.url);
+    } catch {
+      setActionError("Unable to copy URL.");
+    }
+  }
+
+  async function reloadShortcutIcon(shortcut: Shortcut) {
+    setContextMenu(undefined);
+    setActionError(undefined);
+
+    try {
+      const icons = await discoverIcons(shortcut.url);
+      await actions.upsertShortcut({
+        id: shortcut.id,
+        name: shortcut.name,
+        url: shortcut.url,
+        icon: icons[0] ? { kind: "url", url: icons[0].url } : { kind: "favicon" },
+        tileColor: shortcut.tileColor,
+        textColor: shortcut.textColor
+      });
+    } catch {
+      await actions.upsertShortcut({
+        id: shortcut.id,
+        name: shortcut.name,
+        url: shortcut.url,
+        icon: { kind: "favicon" },
+        tileColor: shortcut.tileColor,
+        textColor: shortcut.textColor
+      });
+    }
   }
 
   async function confirmDelete() {
@@ -229,6 +279,19 @@ function App() {
         >
           {contextMenu.shortcut ? (
             <>
+              <button type="button" role="menuitem" onClick={() => openShortcutInNewTab(contextMenu.shortcut!)}>
+                <ExternalLink size={15} />
+                Open in new tab
+              </button>
+              <button type="button" role="menuitem" onClick={() => void copyShortcutUrl(contextMenu.shortcut!)}>
+                <Copy size={15} />
+                Copy URL
+              </button>
+              <button type="button" role="menuitem" onClick={() => void reloadShortcutIcon(contextMenu.shortcut!)}>
+                <RefreshCw size={15} />
+                Reload icon
+              </button>
+              <div className="context-menu-separator" role="separator" />
               <button type="button" role="menuitem" onClick={() => openEditShortcutModal(contextMenu.shortcut!)}>
                 <Pencil size={15} />
                 Edit
@@ -247,10 +310,16 @@ function App() {
               </button>
             </>
           ) : (
-            <button type="button" role="menuitem" onClick={openNewShortcutModal}>
-              <Plus size={15} />
-              Add
-            </button>
+            <>
+              <button type="button" role="menuitem" onClick={openNewShortcutModal}>
+                <Plus size={15} />
+                Add
+              </button>
+              <button type="button" role="menuitem" onClick={openSettingsPanel}>
+                <SettingsIcon size={15} />
+                Settings
+              </button>
+            </>
           )}
         </div>
       ) : null}

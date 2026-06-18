@@ -270,6 +270,84 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
         </section>
 
         <section className="settings-section">
+          <h3>Shortcut appearance</h3>
+          <div className="appearance-grid">
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={showShortcutActions}
+                onChange={(event) => {
+                  const nextValue = event.target.checked;
+                  setShowShortcutActions(nextValue);
+                  void saveNextSettings(currentSettings({ showShortcutActions: nextValue }));
+                }}
+              />
+              <span>
+                <strong>Show hover buttons</strong>
+                <small>Edit and remove buttons appear on shortcuts. Right-click works either way.</small>
+              </span>
+            </label>
+
+            <div className="color-section">
+              <span className="field-title">Presets</span>
+              <div className="swatch-row">
+                {COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    className="swatch"
+                    title={preset.name}
+                    aria-label={preset.name}
+                    style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
+                    onClick={() => {
+                      setDefaultTileColor(preset.tileColor);
+                      setDefaultTextColor(preset.textColor);
+                      void saveNextSettings(
+                        currentSettings({
+                          defaultTileColor: preset.tileColor,
+                          defaultTextColor: preset.textColor
+                        }),
+                        { applyShortcutDefaults: true }
+                      );
+                    }}
+                  >
+                    <span>Aa</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="compact-color-grid">
+              <label className="field color-field">
+                <span>Tile color</span>
+                <input
+                  type="color"
+                  value={defaultTileColor}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDefaultTileColor(value);
+                    void saveNextSettings(currentSettings({ defaultTileColor: value }), { applyShortcutDefaults: true });
+                  }}
+                />
+              </label>
+
+              <label className="field color-field">
+                <span>Text color</span>
+                <input
+                  type="color"
+                  value={defaultTextColor}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDefaultTextColor(value);
+                    void saveNextSettings(currentSettings({ defaultTextColor: value }), { applyShortcutDefaults: true });
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section className="settings-section">
           <h3>Background</h3>
           <fieldset className="segmented-field" aria-label="Background">
             <div className="segmented-control">
@@ -380,84 +458,6 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
               />
             </label>
           ) : null}
-        </section>
-
-        <section className="settings-section">
-          <h3>Shortcut appearance</h3>
-          <div className="appearance-grid">
-            <label className="toggle-row">
-              <input
-                type="checkbox"
-                checked={showShortcutActions}
-                onChange={(event) => {
-                  const nextValue = event.target.checked;
-                  setShowShortcutActions(nextValue);
-                  void saveNextSettings(currentSettings({ showShortcutActions: nextValue }));
-                }}
-              />
-              <span>
-                <strong>Show hover buttons</strong>
-                <small>Edit and remove buttons appear on shortcuts. Right-click works either way.</small>
-              </span>
-            </label>
-
-            <div className="color-section">
-              <span className="field-title">Presets</span>
-              <div className="swatch-row">
-                {COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    className="swatch"
-                    title={preset.name}
-                    aria-label={preset.name}
-                    style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
-                    onClick={() => {
-                      setDefaultTileColor(preset.tileColor);
-                      setDefaultTextColor(preset.textColor);
-                      void saveNextSettings(
-                        currentSettings({
-                          defaultTileColor: preset.tileColor,
-                          defaultTextColor: preset.textColor
-                        }),
-                        { applyShortcutDefaults: true }
-                      );
-                    }}
-                  >
-                    <span>Aa</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="compact-color-grid">
-              <label className="field color-field">
-                <span>Tile color</span>
-                <input
-                  type="color"
-                  value={defaultTileColor}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setDefaultTileColor(value);
-                    void saveNextSettings(currentSettings({ defaultTileColor: value }), { applyShortcutDefaults: true });
-                  }}
-                />
-              </label>
-
-              <label className="field color-field">
-                <span>Text color</span>
-                <input
-                  type="color"
-                  value={defaultTextColor}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setDefaultTextColor(value);
-                    void saveNextSettings(currentSettings({ defaultTextColor: value }), { applyShortcutDefaults: true });
-                  }}
-                />
-              </label>
-            </div>
-          </div>
         </section>
 
         {error ? <p className="form-error">{error}</p> : null}
