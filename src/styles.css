@@ -260,61 +260,48 @@ button:disabled {
   margin: var(--grid-top, clamp(72px, 28vh, 320px)) auto 0;
 }
 
-.dial-grid:empty {
-  display: none;
-}
-
-.empty-dial {
+.add-shortcut-tile {
   display: grid;
-  width: min(460px, 100%);
-  gap: 18px;
-  justify-items: center;
-  margin: var(--grid-top, clamp(72px, 28vh, 320px)) auto 0;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 8px;
-  padding: 28px;
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  box-shadow: 0 18px 52px rgb(17 24 39 / 14%);
-  text-align: center;
-  backdrop-filter: blur(12px);
-}
-
-.empty-dial-icon {
-  display: grid;
-  width: 58px;
-  height: 58px;
+  min-width: 0;
+  min-height: var(--shortcut-min-height, 126px);
+  aspect-ratio: 1.18 / 1;
   place-items: center;
-  border: 1px solid color-mix(in srgb, #2563eb 34%, var(--border));
+  border: 2px dashed rgb(255 255 255 / 58%);
   border-radius: 8px;
-  background: color-mix(in srgb, #2563eb 12%, var(--surface));
-  color: #2563eb;
+  padding: 0;
+  background: rgb(17 24 39 / 18%);
+  color: rgb(255 255 255 / 76%);
+  box-shadow: 0 12px 32px rgb(17 24 39 / 11%);
+  backdrop-filter: blur(6px);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
 }
 
-.empty-dial-copy {
+.add-shortcut-tile:hover,
+.add-shortcut-tile:focus-visible {
+  border-color: rgb(255 255 255 / 86%);
+  background: rgb(37 99 235 / 24%);
+  color: #ffffff;
+  box-shadow: 0 18px 42px rgb(17 24 39 / 18%);
+  outline: 0;
+}
+
+.add-shortcut-tile:active {
+  transform: translateY(1px);
+}
+
+.add-shortcut-icon {
   display: grid;
-  gap: 7px;
-}
-
-.empty-dial h1 {
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.empty-dial p {
-  max-width: 32ch;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.93rem;
-  line-height: 1.45;
-}
-
-.empty-dial-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
+  width: min(var(--shortcut-icon-shell, 76px), 42cqw);
+  height: min(var(--shortcut-icon-shell, 76px), 42cqw);
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 10%);
 }
 
 .shortcut-tile {
@@ -1035,11 +1022,6 @@ button:disabled {
 
   .dial-grid {
     margin-top: var(--grid-top, 70px);
-  }
-
-  .empty-dial {
-    margin-top: var(--grid-top, 70px);
-    padding: 22px;
   }
 
   .form-grid {

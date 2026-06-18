@@ -32,6 +32,7 @@ export type Settings = {
   tileContentMode: TileContentMode;
   theme: ThemeMode;
   showShortcutActions: boolean;
+  showAddShortcutTile: boolean;
   shortcutSize: number;
   shortcutSpacing: number;
   gridVerticalPosition: number;
@@ -97,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tileContentMode: "iconAndName",
   theme: "system",
   showShortcutActions: true,
+  showAddShortcutTile: true,
   shortcutSize: 100,
   shortcutSpacing: 50,
   gridVerticalPosition: 55

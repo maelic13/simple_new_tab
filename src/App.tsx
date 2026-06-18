@@ -10,8 +10,8 @@ import { svgToDataUrl } from "./lib/assets";
 import { discoverIcons } from "./lib/iconDiscovery";
 import { exportStateWithAssets, importStateWithAssets } from "./lib/importExport";
 import { getShortcutAppearance, type Settings, type Shortcut, type ThemeMode } from "./types";
+import { AddShortcutTile } from "./components/AddShortcutTile";
 import { DeleteDialog } from "./components/DeleteDialog";
-import { EmptySpeedDial } from "./components/EmptySpeedDial";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ShortcutModal } from "./components/ShortcutModal";
 import { ShortcutTile } from "./components/ShortcutTile";
@@ -386,13 +386,8 @@ function App() {
                     onContextMenu={openShortcutContextMenu}
                   />
                 ))}
+                {displaySettings.showAddShortcutTile ? <AddShortcutTile onAdd={openNewShortcutModal} /> : null}
               </section>
-              {shortcuts.length === 0 ? (
-                <EmptySpeedDial
-                  onAddShortcut={openNewShortcutModal}
-                  onOpenSettings={openSettingsPanel}
-                />
-              ) : null}
             </SortableContext>
           </DndContext>
         )}

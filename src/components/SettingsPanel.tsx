@@ -66,6 +66,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
   const [theme, setTheme] = useState<ThemeMode>(settings.theme);
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
   const [showShortcutActions, setShowShortcutActions] = useState(settings.showShortcutActions);
+  const [showAddShortcutTile, setShowAddShortcutTile] = useState(settings.showAddShortcutTile);
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>(getInitialBackgroundMode(settings.background));
   const [backgroundColor, setBackgroundColor] = useState(getInitialBackgroundColor(settings.background));
   const [backgroundUrl, setBackgroundUrl] = useState(getInitialBackgroundUrl(settings.background));
@@ -97,6 +98,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     setTheme(settings.theme);
     setTileContentMode(settings.tileContentMode);
     setShowShortcutActions(settings.showShortcutActions);
+    setShowAddShortcutTile(settings.showAddShortcutTile);
     setBackgroundMode(getInitialBackgroundMode(settings.background));
     setBackgroundColor(getInitialBackgroundColor(settings.background));
     setBackgroundUrl(getInitialBackgroundUrl(settings.background));
@@ -194,6 +196,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
       theme,
       tileContentMode,
       showShortcutActions,
+      showAddShortcutTile,
       background: getPreviewBackground(),
       ...overrides
     };
@@ -224,6 +227,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     theme,
     tileContentMode,
     showShortcutActions,
+    showAddShortcutTile,
     backgroundMode,
     backgroundColor,
     backgroundUrl,
@@ -552,6 +556,20 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
               <span>
                 <strong>Show hover buttons</strong>
                 <small>Edit and remove buttons appear on shortcuts. Right-click works either way.</small>
+              </span>
+            </label>
+
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={showAddShortcutTile}
+                onChange={(event) => {
+                  setShowAddShortcutTile(event.target.checked);
+                }}
+              />
+              <span>
+                <strong>Show add shortcut tile</strong>
+                <small>Keep a plus tile at the end of the grid for quickly creating shortcuts.</small>
               </span>
             </label>
 

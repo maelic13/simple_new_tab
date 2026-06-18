@@ -7,7 +7,7 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - New tab override for Chromium-based browsers.
 - Toolbar popup to add the current page as a shortcut.
 - Shortcut add, edit, delete, open, drag reorder, and right-click actions.
-- First-run empty state with Add shortcut and Settings actions.
+- Optional plus tile at the end of the grid for adding shortcuts.
 - Configurable columns from 2 to 12 with responsive reduction on narrow screens.
 - Relative shortcut size, spacing, and vertical position controls for different screens.
 - Chrome sync storage for shortcut metadata and settings.
@@ -17,6 +17,7 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - System, light, and dark themes with remembered shortcut appearance per light/dark mode.
 - Tile content modes: icon and name, icon only, or name only.
 - Optional hover buttons for shortcut edit/remove.
+- Optional add shortcut tile.
 - Background color presets, same-size custom color picker, image URL, SVG text, and local upload.
 - Import and export for full extension backups, including local uploaded icons and backgrounds; export prompts for a backup filename and location when supported by the browser.
 - Legacy shortcut import support.

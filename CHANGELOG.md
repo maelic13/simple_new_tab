@@ -9,12 +9,13 @@ Initial release of Simple New Tab.
 - Manifest V3 Chromium new-tab extension.
 - Toolbar popup to add the current page as a shortcut.
 - Shortcut create, edit, delete, open, drag reorder, and right-click actions.
-- First-run empty state with Add shortcut and Settings actions.
+- Optional plus tile at the end of the grid for adding shortcuts.
 - Right-click shortcut menu with open in new tab, copy URL, reload icon, edit, and remove.
 - Right-click empty-space menu with add and settings.
 - Configurable column count from 2 to 12.
 - Relative shortcut size, spacing, and vertical position controls.
 - Optional shortcut hover action buttons.
+- Optional add shortcut tile.
 - Tile content modes for icon and name, icon only, or name only.
 - System, light, and dark themes.
 - Shortcut color presets and custom default tile/text colors remembered separately for light and dark modes.

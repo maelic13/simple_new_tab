@@ -50,6 +50,7 @@ describe("import/export", () => {
         columns: 9,
         background: { kind: "color", value: "#222222" },
         showShortcutActions: false,
+        showAddShortcutTile: false,
         shortcutSize: 120,
         shortcutSpacing: 15,
         gridVerticalPosition: 25,

@@ -166,6 +166,25 @@ describe("SettingsPanel", () => {
     });
   });
 
+  it("saves add shortcut tile visibility", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    renderSettingsPanel({ onSave });
+
+    fireEvent.click(screen.getByLabelText(/Show add shortcut tile/));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        {
+          ...DEFAULT_SETTINGS,
+          showAddShortcutTile: false
+        },
+        undefined
+      );
+    });
+  });
+
   it("resets defaults after confirmation", async () => {
     const onResetToDefaults = vi.fn().mockResolvedValue(undefined);
     vi.spyOn(window, "confirm").mockReturnValue(true);
