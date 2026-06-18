@@ -7,6 +7,7 @@ Initial release of Simple New Tab.
 ### Added
 
 - Manifest V3 Chromium new-tab extension.
+- Toolbar popup to add the current page as a shortcut.
 - Shortcut create, edit, delete, open, drag reorder, and right-click actions.
 - First-run empty state with Add shortcut and Settings actions.
 - Right-click shortcut menu with open in new tab, copy URL, reload icon, edit, and remove.

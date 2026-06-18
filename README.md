@@ -5,6 +5,7 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 ## Features
 
 - New tab override for Chromium-based browsers.
+- Toolbar popup to add the current page as a shortcut.
 - Shortcut add, edit, delete, open, drag reorder, and right-click actions.
 - First-run empty state with Add shortcut and Settings actions.
 - Configurable columns from 2 to 12 with responsive reduction on narrow screens.
