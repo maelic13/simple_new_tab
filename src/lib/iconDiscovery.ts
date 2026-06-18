@@ -4,7 +4,7 @@ export type DiscoveredIcon = {
   id: string;
   url: string;
   label: string;
-  source: "page" | "manifest" | "fallback";
+  source: "page" | "manifest" | "well-known" | "fallback";
   size?: number;
   type?: string;
 };
@@ -45,6 +45,7 @@ function getIconScore(icon: DiscoveredIcon): number {
   const isApple = icon.label.toLowerCase().includes("apple");
   const isMask = icon.label.toLowerCase().includes("mask-icon");
   const isFallback = icon.source === "fallback";
+  const isWellKnown = icon.source === "well-known";
   const size = icon.size ?? 16;
 
   if (isFallback) {
@@ -57,6 +58,10 @@ function getIconScore(icon: DiscoveredIcon): number {
 
   if (isMask) {
     return 100_000 + size;
+  }
+
+  if (isWellKnown) {
+    return 80_000 + size;
   }
 
   const rasterBase = size >= 96 || isApple ? 500_000 : 50_000;
@@ -77,6 +82,42 @@ function uniqueIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {
 
 function sortIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {
   return [...icons].sort((a, b) => getIconScore(b) - getIconScore(a));
+}
+
+async function canLoadIcon(url: string): Promise<boolean> {
+  try {
+    const head = await fetch(url, { method: "HEAD", credentials: "omit" });
+    if (head.ok) {
+      return true;
+    }
+
+    if (head.status !== 405 && head.status !== 403) {
+      return false;
+    }
+  } catch {
+    // Some sites reject HEAD even when the image itself is valid.
+  }
+
+  try {
+    const response = await fetch(url, {
+      credentials: "omit",
+      headers: { Range: "bytes=0-0" }
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function filterLoadableIcons(icons: DiscoveredIcon[]): Promise<DiscoveredIcon[]> {
+  const checked = await Promise.all(
+    icons.map(async (icon) => ({
+      icon,
+      canLoad: await canLoadIcon(icon.url)
+    }))
+  );
+
+  return checked.filter((item) => item.canLoad).map((item) => item.icon);
 }
 
 export function parseIconLinks(html: string, pageUrl: string): { icons: DiscoveredIcon[]; manifestUrl?: string } {
@@ -149,6 +190,37 @@ export function parseManifestIcons(manifest: unknown, manifestUrl: string): Disc
   return sortIcons(uniqueIcons(icons));
 }
 
+function getWellKnownIcons(pageUrl: string): DiscoveredIcon[] {
+  const origin = new URL(pageUrl).origin;
+
+  return [
+    {
+      id: "well-known-favicon",
+      url: `${origin}/favicon.ico`,
+      label: "Site favicon",
+      source: "well-known",
+      size: 64,
+      type: "image/x-icon"
+    },
+    {
+      id: "well-known-favicon-png",
+      url: `${origin}/favicon.png`,
+      label: "Site favicon PNG",
+      source: "well-known",
+      size: 64,
+      type: "image/png"
+    },
+    {
+      id: "well-known-apple-touch-icon",
+      url: `${origin}/apple-touch-icon.png`,
+      label: "Apple touch icon",
+      source: "well-known",
+      size: 180,
+      type: "image/png"
+    }
+  ];
+}
+
 export async function discoverIcons(pageUrl: string): Promise<DiscoveredIcon[]> {
   const response = await fetch(pageUrl, { credentials: "omit" });
   if (!response.ok) {
@@ -170,10 +242,11 @@ export async function discoverIcons(pageUrl: string): Promise<DiscoveredIcon[]> 
     }
   }
 
-  return sortIcons(
+  const icons = sortIcons(
     uniqueIcons([
       ...manifestIcons,
       ...pageIcons,
+      ...getWellKnownIcons(pageUrl),
       {
         id: "fallback",
         url: getFaviconUrl(pageUrl),
@@ -183,4 +256,6 @@ export async function discoverIcons(pageUrl: string): Promise<DiscoveredIcon[]> 
       }
     ])
   );
+
+  return filterLoadableIcons(icons);
 }

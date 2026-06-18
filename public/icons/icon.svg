@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Simple New Tab icon">
-  <rect x="18" y="18" width="92" height="92" rx="24" fill="#ffffff"/>
-  <rect x="43" y="43" width="16" height="16" rx="4" fill="#1e293b"/>
-  <rect x="69" y="43" width="16" height="16" rx="4" fill="#1e293b"/>
-  <rect x="43" y="69" width="16" height="16" rx="4" fill="#1e293b"/>
-  <path d="M77 68v18M68 77h18" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#ffffff"/>
+  <rect x="34" y="34" width="22" height="22" rx="5" fill="#1e293b"/>
+  <rect x="72" y="34" width="22" height="22" rx="5" fill="#1e293b"/>
+  <rect x="34" y="72" width="22" height="22" rx="5" fill="#1e293b"/>
+  <path d="M83 70v26M70 83h26" stroke="#1e293b" stroke-width="10" stroke-linecap="round"/>
 </svg>

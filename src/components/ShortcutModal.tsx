@@ -1,5 +1,5 @@
-import { FormEvent, useState } from "react";
-import { Image, Link, RefreshCw, Upload, X } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Image, Link, Upload, X } from "lucide-react";
 
 import { fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
 import { discoverIcons, type DiscoveredIcon } from "../lib/iconDiscovery";
@@ -39,34 +39,61 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
   const [discoveredIcons, setDiscoveredIcons] = useState<DiscoveredIcon[]>([]);
   const [selectedIconUrl, setSelectedIconUrl] = useState("");
   const [error, setError] = useState<string | undefined>();
-  const [iconStatus, setIconStatus] = useState<string | undefined>();
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const lastLoadedUrl = useRef("");
 
   const title = shortcut ? "Edit shortcut" : "Add shortcut";
   const canPreserveLocalIcon = shortcut?.icon.kind === "localImageRef" && iconMode === "upload" && !iconFile;
   const canPreserveSvgIcon = shortcut?.icon.kind === "svg" && iconMode === "upload" && !iconFile;
 
+  function removeBrokenIcon(url: string) {
+    const nextIcons = discoveredIcons.filter((icon) => icon.url !== url);
+    setDiscoveredIcons(nextIcons);
+    setSelectedIconUrl((current) => (current === url ? nextIcons[0]?.url ?? "" : current));
+  }
+
   async function reloadIcons() {
     setError(undefined);
-    setIconStatus(undefined);
     setIsDiscovering(true);
     setIconMode("icon");
 
     try {
       const normalizedUrl = normalizeShortcutUrl(url);
+      lastLoadedUrl.current = normalizedUrl;
       const icons = await discoverIcons(normalizedUrl);
       setDiscoveredIcons(icons);
       setSelectedIconUrl(icons[0]?.url ?? "");
-      setIconStatus(icons.length ? `Found ${icons.length} icon${icons.length === 1 ? "" : "s"}.` : "No icons found.");
     } catch (error) {
       setDiscoveredIcons([]);
       setSelectedIconUrl("");
-      setError(error instanceof Error ? error.message : "Unable to reload icons.");
+      if (url.trim()) {
+        setError(error instanceof Error ? error.message : "Unable to load icons.");
+      }
     } finally {
       setIsDiscovering(false);
     }
   }
+
+  useEffect(() => {
+    if (iconMode !== "icon") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      try {
+        const normalizedUrl = normalizeShortcutUrl(url);
+        if (normalizedUrl !== lastLoadedUrl.current) {
+          void reloadIcons();
+        }
+      } catch {
+        setDiscoveredIcons([]);
+        setSelectedIconUrl("");
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [iconMode, url]);
 
   async function buildIcon(): Promise<ShortcutIcon> {
     if (iconMode === "icon") {
@@ -164,11 +191,7 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
 
           {iconMode === "icon" ? (
             <div className="icon-picker full">
-              <button className="button secondary icon-reload" type="button" onClick={() => void reloadIcons()} disabled={isDiscovering}>
-                <RefreshCw size={16} />
-                {isDiscovering ? "Loading icons" : "Reload icons"}
-              </button>
-              {iconStatus ? <p className="form-hint">{iconStatus}</p> : null}
+              {isDiscovering ? <p className="form-hint">Loading icons...</p> : null}
               {discoveredIcons.length ? (
                 <div className="icon-choice-grid" aria-label="Found icons">
                   {discoveredIcons.map((icon) => (
@@ -180,7 +203,7 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
                       aria-label={icon.size ? `${icon.label}, ${icon.size}px` : icon.label}
                       onClick={() => setSelectedIconUrl(icon.url)}
                     >
-                      <img src={icon.url} alt="" />
+                      <img src={icon.url} alt="" onError={() => removeBrokenIcon(icon.url)} />
                     </button>
                   ))}
                 </div>
@@ -197,7 +220,7 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
               {iconUrl.trim() ? (
                 <div className="loaded-icon-preview">
                   <img src={iconUrl.trim()} alt="" />
-                  <span>Loaded from URL</span>
+                  <span>Auto-loaded icon.</span>
                 </div>
               ) : null}
             </div>
@@ -207,7 +230,13 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
             <div className="field full">
               <label>
                 <span>Upload image</span>
-                <input type="file" accept="image/*,.svg" onChange={(event) => setIconFile(event.target.files?.[0])} />
+                <span className="upload-input-row">
+                  <span className="button secondary upload-file-button">
+                    Choose file
+                    <input type="file" accept="image/*,.svg" onChange={(event) => setIconFile(event.target.files?.[0])} />
+                  </span>
+                  <span className="upload-file-name">{iconFile?.name ?? "No file chosen"}</span>
+                </span>
               </label>
               <p className="form-hint">SVG text icons are synced when they fit the sync limit. Raster uploads stay local on this device.</p>
             </div>

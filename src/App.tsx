@@ -142,7 +142,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell" style={pageStyle}>
+    <main className={`app-shell theme-${state.settings.theme}`} style={pageStyle}>
       <div className="app-scrim">
         <button className="icon-button settings-entry" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
           <SettingsIcon size={18} />

@@ -39,7 +39,44 @@ button:disabled {
   min-height: 100vh;
   background-position: center;
   background-size: cover;
-  color: #111827;
+  --surface: #ffffff;
+  --surface-muted: #eef2f7;
+  --surface-hover: #f8fafc;
+  --field-bg: #ffffff;
+  --text: #111827;
+  --text-muted: #374151;
+  --hint: #6b7280;
+  --border: #d7dce3;
+  --border-soft: #edf0f4;
+  --shadow: rgb(17 24 39 / 25%);
+  --button-bg: #ffffff;
+  --danger-bg: #fff1f2;
+  --danger-text: #991b1b;
+  --success-bg: #f0fdf4;
+  --success-text: #166534;
+  color: var(--text);
+}
+
+.app-shell.theme-dark {
+  --surface: #303030;
+  --surface-muted: #3f3f3f;
+  --surface-hover: #484848;
+  --field-bg: #262626;
+  --text: #f9fafb;
+  --text-muted: #e5e7eb;
+  --hint: #cbd5e1;
+  --border: #575757;
+  --border-soft: #4a4a4a;
+  --shadow: rgb(0 0 0 / 45%);
+  --button-bg: #3f3f3f;
+  --danger-bg: #4a2528;
+  --danger-text: #fecaca;
+  --success-bg: #173923;
+  --success-text: #bbf7d0;
+}
+
+.app-shell.theme-dark .app-scrim {
+  background: color-mix(in srgb, #000000 14%, transparent);
 }
 
 .app-scrim {
@@ -53,7 +90,7 @@ button:disabled {
   top: 24px;
   right: 24px;
   z-index: 10;
-  background: rgb(255 255 255 / 72%);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
   backdrop-filter: blur(10px);
 }
 
@@ -64,10 +101,10 @@ button:disabled {
   justify-content: center;
   gap: 8px;
   min-height: 34px;
-  border: 1px solid #d7dce3;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--button-bg);
+  color: var(--text);
   text-decoration: none;
   transition:
     background 150ms ease,
@@ -93,7 +130,7 @@ button:disabled {
 
 .button:hover,
 .icon-button:hover {
-  border-color: #9ca3af;
+  border-color: color-mix(in srgb, var(--border) 55%, var(--text));
   box-shadow: 0 8px 20px rgb(17 24 39 / 10%);
 }
 
@@ -104,7 +141,7 @@ button:disabled {
 }
 
 .button.secondary {
-  background: #ffffff;
+  background: var(--button-bg);
 }
 
 .button.danger {
@@ -117,7 +154,7 @@ button:disabled {
   width: 30px;
   min-height: 30px;
   border-color: transparent;
-  background: rgb(255 255 255 / 65%);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
   color: currentColor;
 }
 
@@ -131,8 +168,8 @@ button:disabled {
   padding: 12px 14px;
   border: 1px solid #fecaca;
   border-radius: 8px;
-  background: #fff1f2;
-  color: #991b1b;
+  background: var(--danger-bg);
+  color: var(--danger-text);
   font-weight: 650;
 }
 
@@ -302,14 +339,15 @@ button:disabled {
   max-height: min(92vh, 780px);
   border: 1px solid #d7dce3;
   border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgb(17 24 39 / 25%);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 70px var(--shadow);
 }
 
 .dialog {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: min(92vh, 780px);
+  max-height: min(92vh, 780px);
   overflow: hidden;
   padding: 18px 18px 0;
 }
@@ -323,7 +361,7 @@ button:disabled {
   inset: 0 0 0 auto;
   z-index: 18;
   width: min(440px, 100%);
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: -18px 0 45px rgb(17 24 39 / 18%);
 }
 
@@ -391,7 +429,7 @@ button:disabled {
 .field span,
 .field-title,
 .segmented-field legend {
-  color: #374151;
+  color: var(--text-muted);
   font-size: 0.83rem;
   font-weight: 650;
 }
@@ -401,16 +439,21 @@ button:disabled {
 .field textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd6df;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--field-bg);
+  color: var(--text);
 }
 
 .field input,
 .field select {
   min-height: 36px;
   padding: 0 11px;
+}
+
+.field > label {
+  display: grid;
+  gap: 8px;
 }
 
 .field input[type="color"] {
@@ -444,11 +487,19 @@ button:disabled {
   gap: 6px;
   padding: 4px;
   border-radius: 8px;
-  background: #eef2f7;
+  background: var(--surface-muted);
 }
 
 .segmented-control.three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.segmented-control.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.theme-toggle {
+  width: min(220px, 100%);
 }
 
 .segmented-control button {
@@ -463,7 +514,7 @@ button:disabled {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #374151;
+  color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 650;
   text-overflow: ellipsis;
@@ -471,8 +522,8 @@ button:disabled {
 }
 
 .segmented-control button.active {
-  background: #ffffff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 3px 10px rgb(17 24 39 / 10%);
 }
 
@@ -497,7 +548,7 @@ button:disabled {
 .settings-section {
   display: grid;
   gap: 12px;
-  border-top: 1px solid #edf0f4;
+  border-top: 1px solid var(--border-soft);
   padding-top: 16px;
 }
 
@@ -508,7 +559,7 @@ button:disabled {
 
 .settings-section h3 {
   margin: 0;
-  color: #111827;
+  color: var(--text);
   font-size: 0.95rem;
   font-weight: 650;
 }
@@ -527,7 +578,7 @@ button:disabled {
 }
 
 .field small {
-  color: #6b7280;
+  color: var(--hint);
   font-size: 0.76rem;
   line-height: 1.35;
 }
@@ -536,6 +587,13 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, max-content));
   gap: 14px 24px;
+}
+
+.appearance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: end;
 }
 
 .color-field {
@@ -579,11 +637,11 @@ button:disabled {
   min-width: 0;
   align-items: center;
   justify-items: center;
-  border: 1px solid #d7dce3;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px;
-  background: #ffffff;
-  color: #374151;
+  background: var(--field-bg);
+  color: var(--text-muted);
 }
 
 .icon-choice.active {
@@ -604,17 +662,50 @@ button:disabled {
   max-width: 100%;
   align-items: center;
   gap: 10px;
-  border: 1px solid #d7dce3;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
-  color: #374151;
+  color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 650;
 }
 
+.upload-input-row {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--field-bg);
+}
+
+.upload-file-button {
+  position: relative;
+  min-height: 28px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.upload-file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.upload-file-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hint);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .form-hint {
   margin: 0;
-  color: #4b5563;
+  color: var(--hint);
   font-size: 0.8rem;
   line-height: 1.45;
 }
@@ -666,8 +757,8 @@ button:disabled {
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 10px 12px;
-  background: #fff1f2;
-  color: #991b1b;
+  background: var(--danger-bg);
+  color: var(--danger-text);
   font-weight: 600;
 }
 
@@ -676,15 +767,15 @@ button:disabled {
   border: 1px solid #bbf7d0;
   border-radius: 8px;
   padding: 10px 12px;
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--success-bg);
+  color: var(--success-text);
   font-weight: 600;
 }
 
 .form-status {
   grid-column: 1 / -1;
   margin: 0;
-  color: #4b5563;
+  color: var(--hint);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -698,7 +789,7 @@ button:disabled {
   gap: 10px;
   margin: 4px -18px 0;
   padding: 14px 18px 18px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 -10px 24px rgb(17 24 39 / 8%);
 }
 

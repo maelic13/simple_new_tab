@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseIconLinks, parseManifestIcons } from "./iconDiscovery";
+import { discoverIcons, parseIconLinks, parseManifestIcons } from "./iconDiscovery";
 
 describe("icon discovery", () => {
   it("extracts standard page icon links and resolves relative URLs", () => {
@@ -48,5 +48,28 @@ describe("icon discovery", () => {
     );
 
     expect(icons.map((icon) => icon.url)).toEqual(["https://example.com/icon-192.png", "https://example.com/icon-48.png"]);
+  });
+
+  it("includes site-root favicon candidates before the external fallback", async () => {
+    const responses = new Map<string, Response>([
+      ["https://example.com/", new Response("<html></html>", { status: 200 })],
+      ["https://example.com/favicon.ico", new Response("", { status: 200 })],
+      ["https://example.com/favicon.png", new Response("", { status: 404 })],
+      ["https://example.com/apple-touch-icon.png", new Response("", { status: 404 })],
+      ["https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128", new Response("", { status: 200 })]
+    ]);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((url: RequestInfo | URL) =>
+      Promise.resolve(responses.get(String(url)) ?? new Response("", { status: 404 }))) as typeof fetch;
+
+    try {
+      const icons = await discoverIcons("https://example.com/");
+      expect(icons.map((icon) => icon.url)).toEqual([
+        "https://example.com/favicon.ico",
+        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128"
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

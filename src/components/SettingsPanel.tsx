@@ -4,7 +4,18 @@ import { Download, Link, Plus, Upload, X } from "lucide-react";
 import { fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
 import { canSyncTextAsset } from "../lib/quota";
 import { normalizeShortcutUrl } from "../lib/url";
-import { COLOR_PRESETS, DEFAULT_BACKGROUND_COLOR, type Background, type Settings, type TileContentMode } from "../types";
+import {
+  COLOR_PRESETS,
+  DARK_GRAY_TEXT_COLOR,
+  DARK_GRAY_TILE_COLOR,
+  DEFAULT_BACKGROUND_COLOR,
+  LIGHT_GRAY_TEXT_COLOR,
+  LIGHT_GRAY_TILE_COLOR,
+  type Background,
+  type Settings,
+  type ThemeMode,
+  type TileContentMode
+} from "../types";
 
 type BackgroundMode = Background["kind"] | "upload";
 
@@ -26,6 +37,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
   const [columnsDraft, setColumnsDraft] = useState(String(settings.columns));
   const [defaultTileColor, setDefaultTileColor] = useState(settings.defaultTileColor);
   const [defaultTextColor, setDefaultTextColor] = useState(settings.defaultTextColor);
+  const [theme, setTheme] = useState<ThemeMode>(settings.theme);
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>(getInitialBackgroundMode(settings.background));
   const [backgroundValue, setBackgroundValue] = useState(settings.background.kind === "localImageRef" ? DEFAULT_BACKGROUND_COLOR : settings.background.value);
@@ -70,10 +82,28 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
       columns,
       defaultTileColor,
       defaultTextColor,
+      theme,
       tileContentMode,
       background: settings.background,
       ...overrides
     };
+  }
+
+  function updateTheme(nextTheme: ThemeMode) {
+    const nextTileColor = nextTheme === "dark" ? DARK_GRAY_TILE_COLOR : LIGHT_GRAY_TILE_COLOR;
+    const nextTextColor = nextTheme === "dark" ? DARK_GRAY_TEXT_COLOR : LIGHT_GRAY_TEXT_COLOR;
+
+    setTheme(nextTheme);
+    setDefaultTileColor(nextTileColor);
+    setDefaultTextColor(nextTextColor);
+    void saveNextSettings(
+      currentSettings({
+        theme: nextTheme,
+        defaultTileColor: nextTileColor,
+        defaultTextColor: nextTextColor
+      }),
+      { applyShortcutDefaults: true }
+    );
   }
 
   async function buildBackground(fileOverride?: File): Promise<Background> {
@@ -147,6 +177,18 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
             <X size={18} />
           </button>
         </div>
+
+        <section className="settings-section">
+          <h3>Theme</h3>
+          <div className="segmented-control two theme-toggle" aria-label="Theme">
+            <button type="button" className={theme === "light" ? "active" : ""} onClick={() => updateTheme("light")}>
+              Light
+            </button>
+            <button type="button" className={theme === "dark" ? "active" : ""} onClick={() => updateTheme("dark")}>
+              Dark
+            </button>
+          </div>
+        </section>
 
         <section className="settings-section">
           <h3>Shortcuts</h3>
@@ -227,8 +269,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
 
         <section className="settings-section">
           <h3>Background</h3>
-          <fieldset className="segmented-field">
-            <legend>Background type</legend>
+          <fieldset className="segmented-field" aria-label="Background">
             <div className="segmented-control">
               <button
                 type="button"
@@ -318,62 +359,64 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
         </section>
 
         <section className="settings-section">
-          <h3>Shortcut defaults</h3>
-          <div className="color-section">
-            <span className="field-title">Presets</span>
-            <div className="swatch-row">
-              {COLOR_PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  className="swatch"
-                  title={preset.name}
-                  aria-label={preset.name}
-                  style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
-                  onClick={() => {
-                    setDefaultTileColor(preset.tileColor);
-                    setDefaultTextColor(preset.textColor);
-                    void saveNextSettings(
-                      currentSettings({
-                        defaultTileColor: preset.tileColor,
-                        defaultTextColor: preset.textColor
-                      }),
-                      { applyShortcutDefaults: true }
-                    );
-                  }}
-                >
-                  <span>Aa</span>
-                </button>
-              ))}
+          <h3>Shortcut appearance</h3>
+          <div className="appearance-grid">
+            <div className="color-section">
+              <span className="field-title">Presets</span>
+              <div className="swatch-row">
+                {COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    className="swatch"
+                    title={preset.name}
+                    aria-label={preset.name}
+                    style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
+                    onClick={() => {
+                      setDefaultTileColor(preset.tileColor);
+                      setDefaultTextColor(preset.textColor);
+                      void saveNextSettings(
+                        currentSettings({
+                          defaultTileColor: preset.tileColor,
+                          defaultTextColor: preset.textColor
+                        }),
+                        { applyShortcutDefaults: true }
+                      );
+                    }}
+                  >
+                    <span>Aa</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="compact-color-grid">
-            <label className="field color-field">
-              <span>Tile color</span>
-              <input
-                type="color"
-                value={defaultTileColor}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setDefaultTileColor(value);
-                  void saveNextSettings(currentSettings({ defaultTileColor: value }), { applyShortcutDefaults: true });
-                }}
-              />
-            </label>
+            <div className="compact-color-grid">
+              <label className="field color-field">
+                <span>Tile color</span>
+                <input
+                  type="color"
+                  value={defaultTileColor}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDefaultTileColor(value);
+                    void saveNextSettings(currentSettings({ defaultTileColor: value }), { applyShortcutDefaults: true });
+                  }}
+                />
+              </label>
 
-            <label className="field color-field">
-              <span>Text color</span>
-              <input
-                type="color"
-                value={defaultTextColor}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setDefaultTextColor(value);
-                  void saveNextSettings(currentSettings({ defaultTextColor: value }), { applyShortcutDefaults: true });
-                }}
-              />
-            </label>
+              <label className="field color-field">
+                <span>Text color</span>
+                <input
+                  type="color"
+                  value={defaultTextColor}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDefaultTextColor(value);
+                    void saveNextSettings(currentSettings({ defaultTextColor: value }), { applyShortcutDefaults: true });
+                  }}
+                />
+              </label>
+            </div>
           </div>
         </section>
 
