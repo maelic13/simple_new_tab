@@ -4,7 +4,7 @@ export default defineManifest({
   manifest_version: 3,
   name: "Simple New Tab",
   version: "1.0.0",
-  description: "A simple speed-dial new tab page with Chrome sync metadata.",
+  description: "A customizable speed-dial new tab page with sync, backups, themes, and quick shortcut creation.",
   permissions: ["storage", "favicon", "activeTab", "downloads"],
   host_permissions: ["http://*/*", "https://*/*"],
   icons: {
