@@ -1,7 +1,7 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import { Pencil, Trash2 } from "lucide-react";
-import { useRef } from "react";
+import { type MouseEvent, useRef } from "react";
 
 import type { Shortcut, TileContentMode } from "../types";
 import { IconImage } from "./IconImage";
@@ -10,12 +10,14 @@ type ShortcutTileProps = {
   shortcut: Shortcut;
   contentMode: TileContentMode;
   suppressOpen: boolean;
+  showActions: boolean;
   onEdit: (shortcut: Shortcut) => void;
   onDelete: (shortcut: Shortcut) => void;
   onOpen: (shortcut: Shortcut) => void;
+  onContextMenu: (event: MouseEvent, shortcut: Shortcut) => void;
 };
 
-export function ShortcutTile({ shortcut, contentMode, suppressOpen, onEdit, onDelete, onOpen }: ShortcutTileProps) {
+export function ShortcutTile({ shortcut, contentMode, suppressOpen, showActions, onEdit, onDelete, onOpen, onContextMenu }: ShortcutTileProps) {
   const pointerStart = useRef<{ x: number; y: number } | undefined>();
   const suppressClick = useRef(false);
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -30,15 +32,22 @@ export function ShortcutTile({ shortcut, contentMode, suppressOpen, onEdit, onDe
   };
 
   return (
-    <article ref={setNodeRef} className={`shortcut-tile mode-${contentMode}${isDragging ? " is-dragging" : ""}`} style={style}>
-      <div className="tile-actions">
-        <button className="icon-button subtle" title="Edit" aria-label={`Edit ${shortcut.name}`} onClick={() => onEdit(shortcut)}>
-          <Pencil size={16} />
-        </button>
-        <button className="icon-button subtle danger" title="Delete" aria-label={`Delete ${shortcut.name}`} onClick={() => onDelete(shortcut)}>
-          <Trash2 size={16} />
-        </button>
-      </div>
+    <article
+      ref={setNodeRef}
+      className={`shortcut-tile mode-${contentMode}${isDragging ? " is-dragging" : ""}`}
+      style={style}
+      onContextMenu={(event) => onContextMenu(event, shortcut)}
+    >
+      {showActions ? (
+        <div className="tile-actions">
+          <button className="icon-button subtle" title="Edit" aria-label={`Edit ${shortcut.name}`} onClick={() => onEdit(shortcut)}>
+            <Pencil size={16} />
+          </button>
+          <button className="icon-button subtle danger" title="Delete" aria-label={`Delete ${shortcut.name}`} onClick={() => onDelete(shortcut)}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ) : null}
       <div
         ref={setActivatorNodeRef}
         className="shortcut-link"

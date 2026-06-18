@@ -85,6 +85,10 @@ function sortIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {
 }
 
 async function canLoadIcon(url: string): Promise<boolean> {
+  if (typeof Image !== "undefined") {
+    return canRenderImage(url);
+  }
+
   try {
     const head = await fetch(url, { method: "HEAD", credentials: "omit" });
     if (head.ok) {
@@ -107,6 +111,32 @@ async function canLoadIcon(url: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function canRenderImage(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    const timeout = window.setTimeout(() => {
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+      resolve(false);
+    }, 4_000);
+
+    image.onload = () => {
+      window.clearTimeout(timeout);
+      resolve(true);
+    };
+
+    image.onerror = () => {
+      window.clearTimeout(timeout);
+      resolve(false);
+    };
+
+    image.referrerPolicy = "no-referrer";
+    image.decoding = "async";
+    image.src = url;
+  });
 }
 
 async function filterLoadableIcons(icons: DiscoveredIcon[]): Promise<DiscoveredIcon[]> {

@@ -30,6 +30,7 @@ export type Settings = {
   defaultTextColor: string;
   tileContentMode: TileContentMode;
   theme: ThemeMode;
+  showShortcutActions: boolean;
 };
 
 export type TileContentMode = "iconAndName" | "iconOnly" | "nameOnly";
@@ -70,7 +71,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultTileColor: DEFAULT_TILE_COLOR,
   defaultTextColor: DEFAULT_TEXT_COLOR,
   tileContentMode: "iconAndName",
-  theme: "light"
+  theme: "light",
+  showShortcutActions: true
 };
 
 export const COLOR_PRESETS: ColorPreset[] = [

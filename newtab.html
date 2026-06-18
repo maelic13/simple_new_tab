@@ -4,9 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simple New Tab</title>
+    <style>
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+        background: #f5f7fa;
+      }
+
+      html.preload-theme-dark,
+      html.preload-theme-dark body,
+      html.preload-theme-dark #root {
+        background: #303030;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/src/preload.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

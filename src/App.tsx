@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { closestCenter, DndContext, type DragEndEvent, type DragStartEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Pencil, Plus, Settings as SettingsIcon, Trash2 } from "lucide-react";
 
 import { useAssetData } from "./hooks/useAssetData";
 import { useResponsiveColumns } from "./hooks/useResponsiveColumns";
@@ -23,6 +23,7 @@ function App() {
   const [actionError, setActionError] = useState<string | undefined>();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDraggingShortcut, setIsDraggingShortcut] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; shortcut?: Shortcut } | undefined>();
   const suppressOpenUntil = useRef(0);
   const columns = useResponsiveColumns(state.settings.columns);
   const backgroundAsset = useAssetData(state.settings.background.kind === "localImageRef" ? state.settings.background.value : undefined);
@@ -35,6 +36,34 @@ function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    function closeMenu() {
+      setContextMenu(undefined);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    }
+
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [contextMenu]);
 
   const pageStyle = useMemo(() => {
     const background = state.settings.background;
@@ -59,6 +88,7 @@ function App() {
   }, [backgroundAsset, state.settings.background, state.settings.defaultTileColor]);
 
   function openNewShortcutModal() {
+    setContextMenu(undefined);
     setEditingShortcut(undefined);
     setIsShortcutModalOpen(true);
     setSettingsOpen(false);
@@ -66,9 +96,21 @@ function App() {
   }
 
   function openEditShortcutModal(shortcut: Shortcut) {
+    setContextMenu(undefined);
     setEditingShortcut(shortcut);
     setIsShortcutModalOpen(true);
     setActionError(undefined);
+  }
+
+  function openPageContextMenu(event: React.MouseEvent) {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }
+
+  function openShortcutContextMenu(event: React.MouseEvent, shortcut: Shortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({ x: event.clientX, y: event.clientY, shortcut });
   }
 
   function handleDragStart(_event: DragStartEvent) {
@@ -143,7 +185,7 @@ function App() {
 
   return (
     <main className={`app-shell theme-${state.settings.theme}`} style={pageStyle}>
-      <div className="app-scrim">
+      <div className="app-scrim" onContextMenu={openPageContextMenu}>
         <button className="icon-button settings-entry" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
           <SettingsIcon size={18} />
         </button>
@@ -164,9 +206,11 @@ function App() {
                     shortcut={shortcut}
                     contentMode={state.settings.tileContentMode}
                     suppressOpen={isDraggingShortcut}
+                    showActions={state.settings.showShortcutActions}
                     onEdit={openEditShortcutModal}
                     onDelete={setDeletingShortcut}
                     onOpen={openShortcut}
+                    onContextMenu={openShortcutContextMenu}
                   />
                 ))}
               </section>
@@ -174,6 +218,42 @@ function App() {
           </DndContext>
         )}
       </div>
+
+      {contextMenu ? (
+        <div
+          className="context-menu"
+          style={{ "--menu-x": `${contextMenu.x}px`, "--menu-y": `${contextMenu.y}px` } as React.CSSProperties}
+          role="menu"
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          {contextMenu.shortcut ? (
+            <>
+              <button type="button" role="menuitem" onClick={() => openEditShortcutModal(contextMenu.shortcut!)}>
+                <Pencil size={15} />
+                Edit
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="danger"
+                onClick={() => {
+                  setDeletingShortcut(contextMenu.shortcut!);
+                  setContextMenu(undefined);
+                }}
+              >
+                <Trash2 size={15} />
+                Remove
+              </button>
+            </>
+          ) : (
+            <button type="button" role="menuitem" onClick={openNewShortcutModal}>
+              <Plus size={15} />
+              Add
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {isShortcutModalOpen ? (
         <ShortcutModal

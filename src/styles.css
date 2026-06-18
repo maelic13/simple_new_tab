@@ -173,6 +173,53 @@ button:disabled {
   font-weight: 650;
 }
 
+.context-menu {
+  position: fixed;
+  top: min(var(--menu-y), calc(100vh - 128px));
+  left: min(var(--menu-x), calc(100vw - 176px));
+  z-index: 30;
+  display: grid;
+  min-width: 160px;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 18px 44px var(--shadow);
+}
+
+.context-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.context-menu button:hover,
+.context-menu button:focus-visible {
+  background: var(--surface-hover);
+  outline: 0;
+}
+
+.context-menu button.danger {
+  color: var(--danger-text);
+}
+
+.context-menu button.danger:hover,
+.context-menu button.danger:focus-visible {
+  background: var(--danger-bg);
+}
+
 .dial-grid {
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
@@ -594,6 +641,38 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px 18px;
   align-items: end;
+}
+
+.toggle-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text);
+}
+
+.toggle-row input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: #2563eb;
+}
+
+.toggle-row span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.toggle-row strong {
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.toggle-row small {
+  color: var(--hint);
+  font-size: 0.76rem;
+  line-height: 1.35;
 }
 
 .color-field {

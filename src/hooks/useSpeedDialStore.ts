@@ -8,7 +8,17 @@ import {
   type ShortcutIcon,
   type SpeedDialState
 } from "../types";
-import { deleteShortcut, loadState, replaceState, saveSettings, saveShortcut, saveShortcutOrder, saveShortcuts, subscribeToStateChanges } from "../lib/storage";
+import {
+  deleteShortcut,
+  loadCachedState,
+  loadState,
+  replaceState,
+  saveSettings,
+  saveShortcut,
+  saveShortcutOrder,
+  saveShortcuts,
+  subscribeToStateChanges
+} from "../lib/storage";
 import { moveItem } from "../lib/order";
 
 const EMPTY_STATE: SpeedDialState = {
@@ -28,8 +38,9 @@ export type ShortcutDraft = {
 };
 
 export function useSpeedDialStore() {
-  const [state, setState] = useState<SpeedDialState>(EMPTY_STATE);
-  const [isLoading, setIsLoading] = useState(true);
+  const [initialState] = useState<SpeedDialState | undefined>(() => loadCachedState());
+  const [state, setState] = useState<SpeedDialState>(() => initialState ?? EMPTY_STATE);
+  const [isLoading, setIsLoading] = useState(() => !initialState);
   const [error, setError] = useState<string | undefined>();
 
   const refresh = useCallback(async () => {

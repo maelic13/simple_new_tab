@@ -39,6 +39,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
   const [defaultTextColor, setDefaultTextColor] = useState(settings.defaultTextColor);
   const [theme, setTheme] = useState<ThemeMode>(settings.theme);
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
+  const [showShortcutActions, setShowShortcutActions] = useState(settings.showShortcutActions);
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>(getInitialBackgroundMode(settings.background));
   const [backgroundValue, setBackgroundValue] = useState(settings.background.kind === "localImageRef" ? DEFAULT_BACKGROUND_COLOR : settings.background.value);
   const [backgroundFile, setBackgroundFile] = useState<File | undefined>();
@@ -84,6 +85,7 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
       defaultTextColor,
       theme,
       tileContentMode,
+      showShortcutActions,
       background: settings.background,
       ...overrides
     };
@@ -297,18 +299,40 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
           </fieldset>
 
           {backgroundMode === "color" ? (
-            <label className="field">
-              <span>Page color</span>
-              <input
-                type="color"
-                value={backgroundValue}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setBackgroundValue(value);
-                  void saveNextSettings(currentSettings({ background: { kind: "color", value } }));
-                }}
-              />
-            </label>
+            <div className="color-section">
+              <span className="field-title">Presets</span>
+              <div className="swatch-row">
+                {[{ name: "Page gray", tileColor: DEFAULT_BACKGROUND_COLOR, textColor: "#111827" }, ...COLOR_PRESETS].map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    className="swatch"
+                    title={preset.name}
+                    aria-label={`Background ${preset.name}`}
+                    style={{ backgroundColor: preset.tileColor, color: preset.textColor }}
+                    onClick={() => {
+                      setBackgroundValue(preset.tileColor);
+                      void saveNextSettings(currentSettings({ background: { kind: "color", value: preset.tileColor } }));
+                    }}
+                  >
+                    <span>Aa</span>
+                  </button>
+                ))}
+              </div>
+
+              <label className="field color-field">
+                <span>Page color</span>
+                <input
+                  type="color"
+                  value={backgroundValue}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setBackgroundValue(value);
+                    void saveNextSettings(currentSettings({ background: { kind: "color", value } }));
+                  }}
+                />
+              </label>
+            </div>
           ) : null}
 
           {backgroundMode === "url" ? (
@@ -361,6 +385,22 @@ export function SettingsPanel({ settings, onClose, onSave, onImport, onExport, o
         <section className="settings-section">
           <h3>Shortcut appearance</h3>
           <div className="appearance-grid">
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={showShortcutActions}
+                onChange={(event) => {
+                  const nextValue = event.target.checked;
+                  setShowShortcutActions(nextValue);
+                  void saveNextSettings(currentSettings({ showShortcutActions: nextValue }));
+                }}
+              />
+              <span>
+                <strong>Show hover buttons</strong>
+                <small>Edit and remove buttons appear on shortcuts. Right-click works either way.</small>
+              </span>
+            </label>
+
             <div className="color-section">
               <span className="field-title">Presets</span>
               <div className="swatch-row">

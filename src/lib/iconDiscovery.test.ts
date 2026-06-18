@@ -2,6 +2,30 @@ import { describe, expect, it } from "vitest";
 
 import { discoverIcons, parseIconLinks, parseManifestIcons } from "./iconDiscovery";
 
+function installImageMock(canLoad: (url: string) => boolean): typeof Image {
+  const originalImage = globalThis.Image;
+
+  class TestImage {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    referrerPolicy = "";
+    decoding = "";
+
+    set src(value: string) {
+      queueMicrotask(() => {
+        if (canLoad(value)) {
+          this.onload?.();
+        } else {
+          this.onerror?.();
+        }
+      });
+    }
+  }
+
+  globalThis.Image = TestImage as unknown as typeof Image;
+  return originalImage;
+}
+
 describe("icon discovery", () => {
   it("extracts standard page icon links and resolves relative URLs", () => {
     const parsed = parseIconLinks(
@@ -59,6 +83,7 @@ describe("icon discovery", () => {
       ["https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128", new Response("", { status: 200 })]
     ]);
     const originalFetch = globalThis.fetch;
+    const originalImage = installImageMock((url) => responses.get(url)?.ok ?? false);
     globalThis.fetch = ((url: RequestInfo | URL) =>
       Promise.resolve(responses.get(String(url)) ?? new Response("", { status: 404 }))) as typeof fetch;
 
@@ -70,6 +95,34 @@ describe("icon discovery", () => {
       ]);
     } finally {
       globalThis.fetch = originalFetch;
+      globalThis.Image = originalImage;
+    }
+  });
+
+  it("filters icons that respond but cannot be rendered as images before returning them", async () => {
+    const responses = new Map<string, Response>([
+      [
+        "https://example.com/",
+        new Response('<link rel="icon" href="/broken.png" sizes="512x512"><link rel="icon" href="/good.png" sizes="128x128">', { status: 200 })
+      ],
+      ["https://example.com/favicon.ico", new Response("", { status: 404 })],
+      ["https://example.com/favicon.png", new Response("", { status: 404 })],
+      ["https://example.com/apple-touch-icon.png", new Response("", { status: 404 })]
+    ]);
+    const originalFetch = globalThis.fetch;
+    const originalImage = installImageMock((url) => url.includes("good.png") || url.includes("google.com/s2/favicons"));
+    globalThis.fetch = ((url: RequestInfo | URL) =>
+      Promise.resolve(responses.get(String(url)) ?? new Response("", { status: 404 }))) as typeof fetch;
+
+    try {
+      const icons = await discoverIcons("https://example.com/");
+      expect(icons.map((icon) => icon.url)).toEqual([
+        "https://example.com/good.png",
+        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128"
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+      globalThis.Image = originalImage;
     }
   });
 });

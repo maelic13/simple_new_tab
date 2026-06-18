@@ -7,6 +7,7 @@ const SETTINGS_KEY = "settings";
 const ORDER_KEY = "shortcutOrder";
 const SHORTCUT_PREFIX = "shortcut:";
 const FALLBACK_STORAGE_KEY = "new-tab-speed-dial:sync";
+const CACHE_STORAGE_KEY = "new-tab-speed-dial:cache";
 const FALLBACK_EVENT = "new-tab-speed-dial:changed";
 
 type ChangeListener = () => void;
@@ -38,6 +39,27 @@ function setFallbackSnapshot(snapshot: SyncSnapshot): void {
   globalThis.dispatchEvent?.(new Event(FALLBACK_EVENT));
 }
 
+function getCachedSnapshot(): SyncSnapshot | undefined {
+  if (!globalThis.localStorage) {
+    return undefined;
+  }
+
+  try {
+    const raw = globalThis.localStorage.getItem(CACHE_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as SyncSnapshot) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function setCachedSnapshot(snapshot: SyncSnapshot): void {
+  try {
+    globalThis.localStorage?.setItem(CACHE_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Cache writes are best-effort; sync storage remains the source of truth.
+  }
+}
+
 async function readAllSync(): Promise<SyncSnapshot> {
   if (!isChromeSyncAvailable()) {
     return getFallbackSnapshot();
@@ -51,6 +73,7 @@ async function readAllSync(): Promise<SyncSnapshot> {
         return;
       }
 
+      setCachedSnapshot(items as SyncSnapshot);
       resolve(items as SyncSnapshot);
     });
   });
@@ -66,6 +89,7 @@ async function writeSync(setItems: SyncSnapshot, removeKeys: string[] = []): Pro
 
   if (!isChromeSyncAvailable()) {
     setFallbackSnapshot(next);
+    setCachedSnapshot(next);
     return;
   }
 
@@ -92,6 +116,8 @@ async function writeSync(setItems: SyncSnapshot, removeKeys: string[] = []): Pro
       });
     });
   }
+
+  setCachedSnapshot(next);
 }
 
 function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
@@ -120,6 +146,11 @@ function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
 }
 
 export const __testSnapshotToState = snapshotToState;
+
+export function loadCachedState(): SpeedDialState | undefined {
+  const cached = getCachedSnapshot();
+  return cached ? { ...snapshotToState(cached), schemaVersion: SCHEMA_VERSION } : undefined;
+}
 
 function getReplaceStatePayload(current: SyncSnapshot, nextState: SpeedDialState): { setItems: SyncSnapshot; removeKeys: string[] } {
   const setItems: SyncSnapshot = {

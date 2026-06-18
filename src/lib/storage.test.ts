@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Shortcut } from "../types";
-import { __testGetReplaceStatePayload, __testSnapshotToState } from "./storage";
+import { __testGetReplaceStatePayload, __testSnapshotToState, loadCachedState } from "./storage";
 
 describe("snapshotToState", () => {
   it("keeps shortcuts even when shortcutOrder is missing or incomplete", () => {
@@ -24,6 +24,33 @@ describe("snapshotToState", () => {
         "shortcut:a": shortcut
       }).shortcutOrder
     ).toEqual(["a"]);
+  });
+});
+
+describe("loadCachedState", () => {
+  it("loads a locally cached sync snapshot for immediate startup", () => {
+    const shortcut: Shortcut = {
+      id: "a",
+      name: "Example",
+      url: "https://example.com/",
+      icon: { kind: "favicon" },
+      tileColor: "#ffffff",
+      textColor: "#111827",
+      createdAt: "2026-06-18T00:00:00.000Z",
+      updatedAt: "2026-06-18T00:00:00.000Z"
+    };
+
+    localStorage.setItem(
+      "new-tab-speed-dial:cache",
+      JSON.stringify({
+        "app:schemaVersion": SCHEMA_VERSION,
+        settings: DEFAULT_SETTINGS,
+        shortcutOrder: ["a"],
+        "shortcut:a": shortcut
+      })
+    );
+
+    expect(loadCachedState()?.shortcutOrder).toEqual(["a"]);
   });
 });
 
