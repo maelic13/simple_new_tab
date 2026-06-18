@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Download, Link, Palette, Plus, RotateCcw, Upload, X } from "lucide-react";
+import { Download, Link, Palette, Pipette, Plus, RotateCcw, Upload, X } from "lucide-react";
 
-import { fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
+import { deleteAsset, fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
 import { canSyncTextAsset } from "../lib/quota";
 import { normalizeShortcutUrl } from "../lib/url";
 import {
@@ -9,16 +9,18 @@ import {
   DEFAULT_BACKGROUND_COLOR,
   DEFAULT_SHORTCUT_APPEARANCE_BY_THEME,
   getShortcutAppearance,
+  normalizeBackgroundByTheme,
   normalizeShortcutAppearanceByTheme,
   type Background,
+  type BackgroundByTheme,
+  type BackgroundMode,
   type ResolvedThemeMode,
   type Settings,
   type ShortcutAppearanceByTheme,
+  type ThemeBackground,
   type ThemeMode,
   type TileContentMode
 } from "../types";
-
-type BackgroundMode = "color" | "url" | "upload";
 
 type SettingsPanelProps = {
   settings: Settings;
@@ -32,20 +34,95 @@ type SettingsPanelProps = {
   onAddShortcut: () => void;
 };
 
-function getInitialBackgroundMode(background: Background): BackgroundMode {
-  return background.kind === "url" ? "url" : background.kind === "color" ? "color" : "upload";
-}
-
 function getInitialBackgroundColor(background: Background): string {
   return background.kind === "color" ? background.value : DEFAULT_BACKGROUND_COLOR;
 }
 
-function getInitialBackgroundUrl(background: Background): string {
-  return background.kind === "url" ? background.value : "";
-}
+type DraftThemeBackground = ThemeBackground & {
+  file?: File;
+  fileName?: string;
+  previewDataUrl?: string;
+};
+
+type DraftBackgroundByTheme = Record<ResolvedThemeMode, DraftThemeBackground>;
+
+const BACKGROUND_THEMES: ResolvedThemeMode[] = ["light", "dark"];
 
 function getActiveAppearanceTheme(theme: ThemeMode, resolvedTheme: ResolvedThemeMode): ResolvedThemeMode {
   return theme === "system" ? resolvedTheme : theme;
+}
+
+function getReadableTextColor(backgroundColor: string): string {
+  const hex = backgroundColor.replace("#", "");
+  if (!/^[\da-f]{6}$/i.test(hex)) {
+    return "#111827";
+  }
+
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+  return luminance > 0.55 ? "#111827" : "#FFFFFF";
+}
+
+function getPreviewUrl(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  try {
+    return normalizeShortcutUrl(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function toDraftBackgroundByTheme(settings: Settings): DraftBackgroundByTheme {
+  const backgroundByTheme = normalizeBackgroundByTheme(settings);
+  return {
+    light: { ...backgroundByTheme.light },
+    dark: { ...backgroundByTheme.dark }
+  };
+}
+
+function getBackgroundFromDraft(background: DraftThemeBackground, fallback: Background): Background {
+  if (background.mode === "color") {
+    return { kind: "color", value: background.color || DEFAULT_BACKGROUND_COLOR };
+  }
+
+  if (background.mode === "url") {
+    const url = getPreviewUrl(background.url);
+    return url ? { kind: "url", value: url } : fallback;
+  }
+
+  if (background.previewDataUrl) {
+    return { kind: "url", value: background.previewDataUrl };
+  }
+
+  if (background.upload) {
+    return background.upload;
+  }
+
+  return { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+}
+
+function toStoredThemeBackground(background: DraftThemeBackground, upload?: ThemeBackground["upload"]): ThemeBackground {
+  let url = background.url.trim();
+  if (url) {
+    try {
+      url = normalizeShortcutUrl(url);
+    } catch {
+      // Keep the draft value for live preview; Apply will surface invalid URLs.
+    }
+  }
+
+  return {
+    mode: background.mode,
+    color: background.color || DEFAULT_BACKGROUND_COLOR,
+    url,
+    ...(upload ? { upload } : background.upload ? { upload: background.upload } : {})
+  };
 }
 
 export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPreview, onImport, onExport, onResetToDefaults, onAddShortcut }: SettingsPanelProps) {
@@ -67,10 +144,12 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
   const [showShortcutActions, setShowShortcutActions] = useState(settings.showShortcutActions);
   const [showAddShortcutTile, setShowAddShortcutTile] = useState(settings.showAddShortcutTile);
-  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>(getInitialBackgroundMode(settings.background));
-  const [backgroundColor, setBackgroundColor] = useState(getInitialBackgroundColor(settings.background));
-  const [backgroundUrl, setBackgroundUrl] = useState(getInitialBackgroundUrl(settings.background));
-  const [backgroundFile, setBackgroundFile] = useState<File | undefined>();
+  const [draftBackgroundByTheme, setDraftBackgroundByTheme] = useState<DraftBackgroundByTheme>(() => toDraftBackgroundByTheme(settings));
+  const [isCustomBackgroundOpen, setIsCustomBackgroundOpen] = useState(false);
+  const [customBackgroundColor, setCustomBackgroundColor] = useState(getInitialBackgroundColor(settings.background));
+  const [customBackgroundDraft, setCustomBackgroundDraft] = useState(getInitialBackgroundColor(settings.background));
+  const [customBackgroundPrevious, setCustomBackgroundPrevious] = useState(getInitialBackgroundColor(settings.background));
+  const [customBackgroundOriginal, setCustomBackgroundOriginal] = useState(getInitialBackgroundColor(settings.background));
   const [error, setError] = useState<string | undefined>();
   const [importMessage, setImportMessage] = useState<string | undefined>();
   const [saveMessage, setSaveMessage] = useState<string | undefined>();
@@ -78,6 +157,9 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
   const [isImporting, setIsImporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const activeAppearanceTheme = getActiveAppearanceTheme(theme, resolvedTheme);
+  const activeBackgroundTheme = activeAppearanceTheme;
+  const activeBackgroundDraft = draftBackgroundByTheme[activeBackgroundTheme];
+  const backgroundMode = activeBackgroundDraft.mode;
 
   useEffect(() => {
     const nextAppearanceTheme = getActiveAppearanceTheme(settings.theme, resolvedTheme);
@@ -99,10 +181,14 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     setTileContentMode(settings.tileContentMode);
     setShowShortcutActions(settings.showShortcutActions);
     setShowAddShortcutTile(settings.showAddShortcutTile);
-    setBackgroundMode(getInitialBackgroundMode(settings.background));
-    setBackgroundColor(getInitialBackgroundColor(settings.background));
-    setBackgroundUrl(getInitialBackgroundUrl(settings.background));
-    setBackgroundFile(undefined);
+    const nextBackgroundByTheme = toDraftBackgroundByTheme(settings);
+    const nextBackground = nextBackgroundByTheme[nextAppearanceTheme];
+    setDraftBackgroundByTheme(nextBackgroundByTheme);
+    setCustomBackgroundColor(nextBackground.color);
+    setCustomBackgroundDraft(nextBackground.color);
+    setCustomBackgroundPrevious(nextBackground.color);
+    setCustomBackgroundOriginal(nextBackground.color);
+    setIsCustomBackgroundOpen(false);
   }, [settings]);
 
   async function saveNextSettings(nextSettings: Settings, options?: { applyShortcutDefaults?: boolean }): Promise<boolean> {
@@ -198,20 +284,30 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
       showShortcutActions,
       showAddShortcutTile,
       background: getPreviewBackground(),
+      backgroundByTheme: stripDraftBackgrounds(draftBackgroundByTheme),
       ...overrides
     };
   }
 
+  function stripDraftBackgrounds(drafts: DraftBackgroundByTheme): BackgroundByTheme {
+    return {
+      light: toStoredThemeBackground(drafts.light),
+      dark: toStoredThemeBackground(drafts.dark)
+    };
+  }
+
+  function updateThemeBackground(overrides: Partial<DraftThemeBackground>) {
+    setDraftBackgroundByTheme((current) => ({
+      ...current,
+      [activeBackgroundTheme]: {
+        ...current[activeBackgroundTheme],
+        ...overrides
+      }
+    }));
+  }
+
   function getPreviewBackground(): Background {
-    if (backgroundMode === "color") {
-      return { kind: "color", value: backgroundColor || DEFAULT_BACKGROUND_COLOR };
-    }
-
-    if (backgroundMode === "url") {
-      return backgroundUrl.trim() ? { kind: "url", value: backgroundUrl } : settings.background;
-    }
-
-    return backgroundFile || settings.background.kind === "localImageRef" || settings.background.kind === "svg" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+    return getBackgroundFromDraft(activeBackgroundDraft, settings.background);
   }
 
   useEffect(() => {
@@ -228,10 +324,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     tileContentMode,
     showShortcutActions,
     showAddShortcutTile,
-    backgroundMode,
-    backgroundColor,
-    backgroundUrl,
-    backgroundFile
+    draftBackgroundByTheme
   ]);
 
   function updateShortcutAppearance(tileColor: string, textColor: string) {
@@ -252,20 +345,68 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
   useEffect(() => {
     if (theme === "system") {
       loadShortcutAppearance(resolvedTheme);
+      loadBackground(resolvedTheme);
     }
   }, [resolvedTheme, theme]);
 
   function updateTheme(nextTheme: ThemeMode) {
     setTheme(nextTheme);
     loadShortcutAppearance(getActiveAppearanceTheme(nextTheme, resolvedTheme));
+    loadBackground(getActiveAppearanceTheme(nextTheme, resolvedTheme));
+  }
+
+  function loadBackground(theme: ResolvedThemeMode) {
+    const nextBackground = draftBackgroundByTheme[theme];
+    setCustomBackgroundColor(nextBackground.color);
+    setCustomBackgroundDraft(nextBackground.color);
+    setCustomBackgroundPrevious(nextBackground.color);
+    setCustomBackgroundOriginal(nextBackground.color);
+    setIsCustomBackgroundOpen(false);
+  }
+
+  function updateBackgroundMode(nextMode: BackgroundMode) {
+    updateThemeBackground({ mode: nextMode });
+
+    if (nextMode === "color") {
+      setCustomBackgroundColor(activeBackgroundDraft.color);
+      setCustomBackgroundDraft(activeBackgroundDraft.color);
+    }
+  }
+
+  function openCustomBackground() {
+    if (!isCustomBackgroundOpen) {
+      setCustomBackgroundPrevious(activeBackgroundDraft.color);
+      setCustomBackgroundOriginal(customBackgroundColor);
+      setCustomBackgroundDraft(customBackgroundColor);
+    }
+    setIsCustomBackgroundOpen(true);
+  }
+
+  function previewCustomBackground(value: string) {
+    setCustomBackgroundColor(value);
+    setCustomBackgroundDraft(value);
+    updateThemeBackground({ color: value });
+  }
+
+  function cancelCustomBackground() {
+    setCustomBackgroundColor(customBackgroundOriginal);
+    setCustomBackgroundDraft(customBackgroundPrevious);
+    updateThemeBackground({ color: customBackgroundPrevious });
+    setIsCustomBackgroundOpen(false);
+  }
+
+  function applyCustomBackground() {
+    updateThemeBackground({ color: customBackgroundDraft });
+    setIsCustomBackgroundOpen(false);
   }
 
   async function handleApply() {
     setError(undefined);
 
     try {
-      const background = await buildBackground();
-      const nextSettings = currentSettings({ background });
+      const nextBackgroundByTheme = await buildBackgroundByTheme();
+      const background = getBackgroundFromDraft(nextBackgroundByTheme[activeBackgroundTheme], settings.background);
+      const nextSettings = currentSettings({ background, backgroundByTheme: nextBackgroundByTheme });
       const nextAppearanceTheme = getActiveAppearanceTheme(nextSettings.theme, resolvedTheme);
       const previousAppearance = getShortcutAppearance(settings, nextAppearanceTheme);
       const nextAppearance = getShortcutAppearance(nextSettings, nextAppearanceTheme);
@@ -276,6 +417,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
 
       const didSave = await saveNextSettings(nextSettings, shouldApplyShortcutDefaults ? { applyShortcutDefaults: true } : undefined);
       if (didSave) {
+        await deleteReplacedBackgroundAssets(nextBackgroundByTheme);
         onClose();
       }
     } catch (error) {
@@ -283,23 +425,25 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     }
   }
 
-  async function buildBackground(fileOverride?: File): Promise<Background> {
-    if (backgroundMode === "color") {
-      return { kind: "color", value: backgroundColor || DEFAULT_BACKGROUND_COLOR };
+  async function buildBackgroundByTheme(): Promise<BackgroundByTheme> {
+    const nextEntries = await Promise.all(
+      BACKGROUND_THEMES.map(async (theme) => {
+        const draft = draftBackgroundByTheme[theme];
+        const upload = draft.file ? await buildUploadBackground(draft) : draft.upload;
+        return [theme, toStoredThemeBackground(draft, upload)] as const;
+      })
+    );
+
+    return Object.fromEntries(nextEntries) as BackgroundByTheme;
+  }
+
+  async function buildUploadBackground(background: DraftThemeBackground): Promise<ThemeBackground["upload"]> {
+    if (!background.file) {
+      return background.upload;
     }
 
-    if (backgroundMode === "url") {
-      return backgroundUrl.trim() ? { kind: "url", value: normalizeShortcutUrl(backgroundUrl) } : settings.background;
-    }
-
-    const selectedFile = fileOverride ?? backgroundFile;
-
-    if (!selectedFile) {
-      return settings.background.kind === "localImageRef" || settings.background.kind === "svg" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
-    }
-
-    if (fileLooksLikeSvg(selectedFile)) {
-      const text = (await readFileAsText(selectedFile)).trim();
+    if (fileLooksLikeSvg(background.file)) {
+      const text = (await readFileAsText(background.file)).trim();
       if (canSyncTextAsset(text)) {
         return { kind: "svg", value: text };
       }
@@ -308,8 +452,29 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
       return { kind: "localImageRef", value: ref };
     }
 
-    const ref = await saveAsset(await readFileAsDataUrl(selectedFile), selectedFile.type || "application/octet-stream");
+    const ref = await saveAsset(await readFileAsDataUrl(background.file), background.file.type || "application/octet-stream");
     return { kind: "localImageRef", value: ref };
+  }
+
+  async function deleteReplacedBackgroundAssets(nextBackgroundByTheme: BackgroundByTheme) {
+    const previousBackgroundByTheme = normalizeBackgroundByTheme(settings);
+    const nextLocalRefs = new Set(
+      Object.values(nextBackgroundByTheme)
+        .map((background) => background.upload)
+        .filter((upload): upload is Extract<Background, { kind: "localImageRef" }> => upload?.kind === "localImageRef")
+        .map((upload) => upload.value)
+    );
+
+    await Promise.all(
+      BACKGROUND_THEMES.map(async (theme) => {
+        const previous = previousBackgroundByTheme[theme].upload;
+        if (previous?.kind !== "localImageRef" || nextLocalRefs.has(previous.value)) {
+          return;
+        }
+
+        await deleteAsset(previous.value);
+      })
+    );
   }
 
   async function handleImport(file: File | undefined) {
@@ -630,17 +795,17 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
                 type="button"
                 className={backgroundMode === "color" ? "active" : ""}
                 onClick={() => {
-                  setBackgroundMode("color");
+                  updateBackgroundMode("color");
                 }}
               >
                 <Palette size={15} />
                 Color
               </button>
-              <button type="button" className={backgroundMode === "url" ? "active" : ""} onClick={() => setBackgroundMode("url")}>
+              <button type="button" className={backgroundMode === "url" ? "active" : ""} onClick={() => updateBackgroundMode("url")}>
                 <Link size={15} />
                 URL
               </button>
-              <button type="button" className={backgroundMode === "upload" ? "active" : ""} onClick={() => setBackgroundMode("upload")}>
+              <button type="button" className={backgroundMode === "upload" ? "active" : ""} onClick={() => updateBackgroundMode("upload")}>
                 <Upload size={15} />
                 Upload image
               </button>
@@ -660,20 +825,41 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
                     aria-label={`Background ${preset.name}`}
                     style={{ backgroundColor: preset.tileColor }}
                     onClick={() => {
-                      setBackgroundColor(preset.tileColor);
+                      setIsCustomBackgroundOpen(false);
+                      updateThemeBackground({ color: preset.tileColor });
                     }}
                   />
                 ))}
-                <label className="swatch color-swatch custom-color-swatch" title="Custom" aria-label="Custom background color" style={{ backgroundColor }}>
-                  <input
-                    type="color"
-                    value={backgroundColor}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setBackgroundColor(value);
+                <div className={`custom-color-control${isCustomBackgroundOpen ? " active" : ""}`}>
+                  <label
+                    className="swatch color-swatch custom-color-swatch"
+                    title="Custom"
+                    aria-label="Custom background color"
+                    style={{
+                      backgroundColor: isCustomBackgroundOpen ? customBackgroundDraft : customBackgroundColor,
+                      color: getReadableTextColor(isCustomBackgroundOpen ? customBackgroundDraft : customBackgroundColor)
                     }}
-                  />
-                </label>
+                  >
+                    <Pipette size={14} />
+                    <input
+                      type="color"
+                      value={isCustomBackgroundOpen ? customBackgroundDraft : customBackgroundColor}
+                      onClick={openCustomBackground}
+                      onInput={(event) => previewCustomBackground(event.currentTarget.value)}
+                      onChange={(event) => previewCustomBackground(event.currentTarget.value)}
+                    />
+                  </label>
+                  {isCustomBackgroundOpen ? (
+                    <div className="custom-color-actions">
+                      <button className="button secondary" type="button" onClick={cancelCustomBackground}>
+                        Cancel
+                      </button>
+                      <button className="button primary" type="button" onClick={applyCustomBackground}>
+                        OK
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}
@@ -682,8 +868,11 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
             <label className="field">
               <span>Image URL</span>
               <input
-                value={backgroundUrl}
-                onChange={(event) => setBackgroundUrl(event.target.value)}
+                value={activeBackgroundDraft.url}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateThemeBackground({ url: value });
+                }}
                 placeholder="https://example.com/background.jpg"
               />
             </label>
@@ -700,13 +889,26 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
                     accept="image/*,.svg"
                     onChange={(event) => {
                       const file = event.target.files?.[0];
-                      setBackgroundFile(file);
+                      if (!file) {
+                        updateThemeBackground({ file: undefined, fileName: undefined, previewDataUrl: undefined });
+                        return;
+                      }
+                      updateThemeBackground({ mode: "upload", file, fileName: file.name, previewDataUrl: undefined });
+                      void readFileAsDataUrl(file).then((previewDataUrl) => {
+                        setDraftBackgroundByTheme((current) => ({
+                          ...current,
+                          [activeBackgroundTheme]: {
+                            ...current[activeBackgroundTheme],
+                            previewDataUrl
+                          }
+                        }));
+                      });
                     }}
                   />
                 </span>
-                <span className="upload-file-name">{backgroundFile?.name ?? "No file chosen"}</span>
+                <span className="upload-file-name">{activeBackgroundDraft.fileName ?? (activeBackgroundDraft.upload ? "Current image" : "No file chosen")}</span>
               </span>
-              <p className="form-hint">SVG backgrounds are synced when they fit the sync limit. Raster uploads stay local on this device and are included in exports.</p>
+              <p className="form-hint">SVG backgrounds are synced when they fit the sync limit. Raster uploads stay local on this device and reset to the default color in exports.</p>
             </label>
           ) : null}
         </section>

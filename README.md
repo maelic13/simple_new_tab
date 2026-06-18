@@ -6,7 +6,9 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 
 - New tab override for Chromium-based browsers.
 - Toolbar popup to add the current page as a shortcut.
+- First-run setup for theme, background, shortcut appearance, and recommended starter shortcuts.
 - Shortcut add, edit, delete, open, drag reorder, and right-click actions.
+- Shortcut multi-select with bulk delete confirmation.
 - Optional plus tile at the end of the grid for adding shortcuts.
 - Configurable columns from 2 to 12 with responsive reduction on narrow screens.
 - Relative shortcut size, spacing, and vertical position controls for different screens.
@@ -18,10 +20,10 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - Tile content modes: icon and name, icon only, or name only.
 - Optional hover buttons for shortcut edit/remove.
 - Optional add shortcut tile.
-- Background color presets, same-size custom color picker, image URL, SVG text, and local upload.
-- Import and export for full extension backups, including local uploaded icons and backgrounds; export prompts for a backup filename and location when supported by the browser.
+- Background color presets, custom color picker, image URL, and local image/SVG upload.
+- Import and export for full extension backups, including local uploaded shortcut icons; URL and SVG backgrounds restore from backups, while local raster background uploads reset to the default color.
 - Legacy shortcut import support.
-- Reset defaults action to restore default settings and clear shortcuts.
+- Reset defaults action to restore default settings, clear shortcuts, and show first-run setup again.
 
 ## Install For Local Testing
 
@@ -64,7 +66,7 @@ Simple New Tab uses `chrome.storage.sync` for compact JSON metadata:
 - shortcut order
 - shortcut name, URL, icon reference, and colors
 
-Uploaded raster images are stored locally in IndexedDB and do not sync through Chrome sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. Extension exports include local uploaded assets so importing the backup can restore the full visual state on another install.
+Uploaded raster images are stored locally in IndexedDB and do not sync through Chrome sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. Extension exports include local uploaded shortcut icons; local raster background uploads stay on this device and reset to the default color in exported backups.
 
 ## Release Build
 

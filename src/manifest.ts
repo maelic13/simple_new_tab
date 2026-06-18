@@ -5,7 +5,7 @@ export default defineManifest({
   name: "Simple New Tab",
   version: "1.0.0",
   description: "A simple speed-dial new tab page with Chrome sync metadata.",
-  permissions: ["storage", "favicon", "activeTab"],
+  permissions: ["storage", "favicon", "activeTab", "downloads"],
   host_permissions: ["http://*/*", "https://*/*"],
   icons: {
     "16": "icons/icon-16.png",

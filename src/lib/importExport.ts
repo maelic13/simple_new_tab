@@ -1,12 +1,15 @@
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_BACKGROUND_COLOR,
   DEFAULT_TEXT_COLOR,
   DEFAULT_TILE_COLOR,
   DARK_GRAY_TEXT_COLOR,
   DARK_GRAY_TILE_COLOR,
   SCHEMA_VERSION,
+  normalizeBackgroundByTheme,
   normalizeShortcutAppearanceByTheme,
   type ExportedAsset,
+  type BackgroundByTheme,
   type Settings,
   type Shortcut,
   type SpeedDialExport,
@@ -145,9 +148,53 @@ function byShortcutPosition(a: UnknownRecord, b: UnknownRecord): number {
 }
 
 function completeSettings(value: unknown): Settings {
-  const settings = isRecord(value) ? ({ ...DEFAULT_SETTINGS, ...value } as Settings) : { ...DEFAULT_SETTINGS };
+  const rawSettings = isRecord(value) ? value : {};
+  const settings = { ...DEFAULT_SETTINGS, ...rawSettings } as Settings;
   settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
+  settings.backgroundByTheme = normalizeBackgroundByTheme({
+    background: settings.background,
+    ...(Object.prototype.hasOwnProperty.call(rawSettings, "backgroundByTheme") ? { backgroundByTheme: rawSettings.backgroundByTheme as BackgroundByTheme } : {})
+  });
   return settings;
+}
+
+function sanitizeBackgroundByThemeForExport(backgroundByTheme: BackgroundByTheme): BackgroundByTheme {
+  return {
+    light: sanitizeThemeBackgroundForExport(backgroundByTheme.light),
+    dark: sanitizeThemeBackgroundForExport(backgroundByTheme.dark)
+  };
+}
+
+function sanitizeThemeBackgroundForExport(background: BackgroundByTheme["light"]): BackgroundByTheme["light"] {
+  if (background.upload?.kind !== "localImageRef") {
+    return background;
+  }
+
+  if (background.mode === "upload") {
+    return {
+      ...background,
+      mode: "color",
+      color: DEFAULT_BACKGROUND_COLOR,
+      upload: undefined
+    };
+  }
+
+  return {
+    ...background,
+    upload: undefined
+  };
+}
+
+function sanitizeSettingsForExport(settings: Settings): Settings {
+  const completed = completeSettings(settings);
+  const backgroundByTheme = sanitizeBackgroundByThemeForExport(completed.backgroundByTheme);
+  const background = completed.background.kind === "localImageRef" ? { kind: "color" as const, value: DEFAULT_BACKGROUND_COLOR } : completed.background;
+
+  return {
+    ...completed,
+    background,
+    backgroundByTheme
+  };
 }
 
 export function exportState(state: SpeedDialState): SpeedDialExport {
@@ -155,17 +202,13 @@ export function exportState(state: SpeedDialState): SpeedDialExport {
     app: "new-tab-speed-dial",
     formatVersion: 2,
     exportedAt: new Date().toISOString(),
-    settings: completeSettings(state.settings),
+    settings: sanitizeSettingsForExport(state.settings),
     shortcuts: state.shortcutOrder.map((id) => state.shortcuts[id]).filter((shortcut): shortcut is Shortcut => Boolean(shortcut))
   };
 }
 
 function getLocalAssetRefs(state: SpeedDialState): string[] {
   const refs = new Set<string>();
-
-  if (state.settings.background.kind === "localImageRef") {
-    refs.add(state.settings.background.value);
-  }
 
   for (const shortcut of Object.values(state.shortcuts)) {
     if (shortcut.icon.kind === "localImageRef") {

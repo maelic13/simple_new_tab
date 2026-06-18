@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, SCHEMA_VERSION, normalizeShortcutAppearanceByTheme, type Settings, type Shortcut, type SpeedDialState } from "../types";
+import { DEFAULT_SETTINGS, SCHEMA_VERSION, normalizeBackgroundByTheme, normalizeShortcutAppearanceByTheme, type Settings, type Shortcut, type SpeedDialState } from "../types";
 import { compactOrder } from "./order";
 import { assertSyncSnapshotFits, type SyncSnapshot } from "./quota";
 
@@ -139,6 +139,10 @@ function snapshotToState(snapshot: SyncSnapshot): SpeedDialState {
     ...rawSettings
   } as Settings;
   settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
+  settings.backgroundByTheme = normalizeBackgroundByTheme({
+    background: settings.background,
+    ...(Object.prototype.hasOwnProperty.call(rawSettings, "backgroundByTheme") ? { backgroundByTheme: rawSettings.backgroundByTheme } : {})
+  });
 
   return {
     schemaVersion: typeof snapshot[SCHEMA_KEY] === "number" ? (snapshot[SCHEMA_KEY] as number) : SCHEMA_VERSION,
@@ -235,6 +239,16 @@ export async function deleteShortcut(id: string, order: string[]): Promise<void>
       [ORDER_KEY]: order
     },
     [getShortcutKey(id)]
+  );
+}
+
+export async function deleteShortcuts(ids: string[], order: string[]): Promise<void> {
+  await writeSync(
+    {
+      [SCHEMA_KEY]: SCHEMA_VERSION,
+      [ORDER_KEY]: order
+    },
+    ids.map(getShortcutKey)
   );
 }
 

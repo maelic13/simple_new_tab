@@ -25,6 +25,21 @@ describe("snapshotToState", () => {
       }).shortcutOrder
     ).toEqual(["a"]);
   });
+
+  it("promotes legacy stored background URLs to both theme backgrounds", () => {
+    const backgroundUrl = "https://assets.speeddial2.com/themes/68.jpg";
+    const state = __testSnapshotToState({
+      "app:schemaVersion": SCHEMA_VERSION,
+      settings: {
+        background: { kind: "url", value: backgroundUrl }
+      }
+    });
+
+    expect(state.settings.backgroundByTheme).toEqual({
+      light: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl },
+      dark: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl }
+    });
+  });
 });
 
 describe("loadCachedState", () => {

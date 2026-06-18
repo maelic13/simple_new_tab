@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { closestCenter, DndContext, type DragEndEvent, type DragStartEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Copy, ExternalLink, Pencil, Plus, RefreshCw, Settings as SettingsIcon, Trash2 } from "lucide-react";
+import { CheckSquare, Copy, ExternalLink, Pencil, Plus, RefreshCw, Settings as SettingsIcon, Square, Trash2 } from "lucide-react";
 
 import { useAssetData } from "./hooks/useAssetData";
 import { useResponsiveColumns } from "./hooks/useResponsiveColumns";
@@ -9,12 +9,14 @@ import { useSpeedDialStore } from "./hooks/useSpeedDialStore";
 import { svgToDataUrl } from "./lib/assets";
 import { discoverIcons } from "./lib/iconDiscovery";
 import { exportStateWithAssets, importStateWithAssets } from "./lib/importExport";
-import { getShortcutAppearance, type Settings, type Shortcut, type ThemeMode } from "./types";
+import { addShortcutToEnd, type ShortcutSaveDraft } from "./lib/shortcutActions";
+import { getShortcutAppearance, getThemeBackgroundValue, type Settings, type Shortcut, type ThemeMode } from "./types";
 import { AddShortcutTile } from "./components/AddShortcutTile";
 import { DeleteDialog } from "./components/DeleteDialog";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ShortcutModal } from "./components/ShortcutModal";
 import { ShortcutTile } from "./components/ShortcutTile";
+import { WelcomeDialog } from "./components/WelcomeDialog";
 
 function getSystemTheme(): "light" | "dark" {
   if (typeof window === "undefined") {
@@ -41,12 +43,38 @@ type SaveFilePicker = (options?: {
   }>;
 }>;
 
+function downloadWithSaveAs(url: string, filename: string): Promise<boolean> {
+  if (!globalThis.chrome?.downloads?.download) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download(
+      {
+        url,
+        filename,
+        saveAs: true
+      },
+      () => {
+        const message = chrome.runtime.lastError?.message;
+        if (message) {
+          reject(new Error(message));
+          return;
+        }
+        resolve(true);
+      }
+    );
+  });
+}
+
 function App() {
   const { state, isLoading, error, actions, refresh } = useSpeedDialStore();
   const [editingShortcut, setEditingShortcut] = useState<Shortcut | undefined>();
   const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deletingShortcut, setDeletingShortcut] = useState<Shortcut | undefined>();
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [selectedShortcutIds, setSelectedShortcutIds] = useState<Set<string>>(() => new Set());
   const [actionError, setActionError] = useState<string | undefined>();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDraggingShortcut, setIsDraggingShortcut] = useState(false);
@@ -57,8 +85,10 @@ function App() {
   const effectiveSettings = draftSettings ?? state.settings;
   const resolvedTheme = resolveTheme(effectiveSettings.theme, systemTheme);
   const activeShortcutAppearance = getShortcutAppearance(effectiveSettings, resolvedTheme);
+  const activeBackground = getThemeBackgroundValue(effectiveSettings, resolvedTheme);
   const displaySettings = {
     ...effectiveSettings,
+    background: activeBackground,
     defaultTileColor: activeShortcutAppearance.tileColor,
     defaultTextColor: activeShortcutAppearance.textColor
   };
@@ -80,6 +110,21 @@ function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+  const selectedShortcuts = useMemo(() => shortcuts.filter((shortcut) => selectedShortcutIds.has(shortcut.id)), [selectedShortcutIds, shortcuts]);
+  const isSelectionActive = selectedShortcutIds.size > 0;
+  const shouldShowWelcome = !isLoading && !state.settings.welcomeCompleted && !settingsOpen && !isShortcutModalOpen;
+
+  useEffect(() => {
+    setSelectedShortcutIds((current) => {
+      if (current.size === 0) {
+        return current;
+      }
+
+      const availableIds = new Set(shortcuts.map((shortcut) => shortcut.id));
+      const next = new Set(Array.from(current).filter((id) => availableIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [shortcuts]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -126,15 +171,15 @@ function App() {
     }
 
     if (background.kind === "url") {
-      return { backgroundImage: `url("${background.value}")` };
+      return { backgroundImage: `url("${background.value}")`, backgroundRepeat: "no-repeat" };
     }
 
     if (background.kind === "svg") {
-      return { backgroundImage: `url("${svgToDataUrl(background.value)}")` };
+      return { backgroundImage: `url("${svgToDataUrl(background.value)}")`, backgroundRepeat: "no-repeat" };
     }
 
     if (backgroundAsset) {
-      return { backgroundImage: `url("${backgroundAsset}")` };
+      return { backgroundImage: `url("${backgroundAsset}")`, backgroundRepeat: "no-repeat" };
     }
 
     return { backgroundColor: displaySettings.defaultTileColor };
@@ -331,20 +376,68 @@ function App() {
 
     const url = URL.createObjectURL(blob);
     try {
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = suggestedName;
-      anchor.click();
+      const didUseDownloadsApi = await downloadWithSaveAs(url, suggestedName);
+      if (!didUseDownloadsApi) {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = suggestedName;
+        anchor.click();
+      }
     } finally {
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
+  function toggleShortcutSelected(shortcut: Shortcut) {
+    setSelectedShortcutIds((current) => {
+      const next = new Set(current);
+      if (next.has(shortcut.id)) {
+        next.delete(shortcut.id);
+      } else {
+        next.add(shortcut.id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedShortcutIds(new Set());
+    setIsBulkDeleteOpen(false);
+    setActionError(undefined);
+  }
+
+  async function confirmBulkDelete() {
+    const ids = Array.from(selectedShortcutIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionError(undefined);
+
+    try {
+      await actions.removeShortcuts(ids);
+      setSelectedShortcutIds(new Set());
+      setIsBulkDeleteOpen(false);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Unable to delete shortcuts.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
   async function handleImport(file: File) {
     const text = await file.text();
     const nextState = await importStateWithAssets(JSON.parse(text) as unknown);
-    await actions.importState(nextState);
-    setDraftSettings(nextState.settings);
+    const importedState = {
+      ...nextState,
+      settings: {
+        ...nextState.settings,
+        welcomeCompleted: true
+      }
+    };
+    await actions.importState(importedState);
+    setDraftSettings(importedState.settings);
   }
 
   async function handleResetToDefaults() {
@@ -353,7 +446,25 @@ function App() {
     setSettingsOpen(false);
     setIsShortcutModalOpen(false);
     setDeletingShortcut(undefined);
+    setIsBulkDeleteOpen(false);
+    setSelectedShortcutIds(new Set());
     setContextMenu(undefined);
+  }
+
+  async function handleWelcomeExit(settings: Settings) {
+    await actions.updateSettings(settings);
+    setDraftSettings(undefined);
+  }
+
+  async function handleWelcomeFinish(settings: Settings, shortcutDrafts: ShortcutSaveDraft[]) {
+    await actions.updateSettings(settings, { applyShortcutDefaults: true });
+
+    for (const draft of shortcutDrafts) {
+      await addShortcutToEnd(draft, resolvedTheme);
+    }
+
+    setDraftSettings(undefined);
+    await refresh();
   }
 
   return (
@@ -380,9 +491,12 @@ function App() {
                     contentMode={displaySettings.tileContentMode}
                     suppressOpen={isDraggingShortcut}
                     showActions={displaySettings.showShortcutActions}
+                    isSelected={selectedShortcutIds.has(shortcut.id)}
+                    isSelectionVisible={isSelectionActive}
                     onEdit={openEditShortcutModal}
                     onDelete={setDeletingShortcut}
                     onOpen={openShortcut}
+                    onToggleSelected={toggleShortcutSelected}
                     onContextMenu={openShortcutContextMenu}
                   />
                 ))}
@@ -392,6 +506,19 @@ function App() {
           </DndContext>
         )}
       </div>
+
+      {isSelectionActive ? (
+        <div className="selection-bar" role="status" aria-live="polite">
+          <span>{selectedShortcutIds.size} selected</span>
+          <button className="button secondary" type="button" onClick={clearSelection}>
+            Cancel
+          </button>
+          <button className="button danger" type="button" onClick={() => setIsBulkDeleteOpen(true)}>
+            <Trash2 size={16} />
+            Delete
+          </button>
+        </div>
+      ) : null}
 
       {contextMenu ? (
         <div
@@ -414,6 +541,17 @@ function App() {
               <button type="button" role="menuitem" onClick={() => void reloadShortcutIcon(contextMenu.shortcut!)}>
                 <RefreshCw size={15} />
                 Reload icon
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  toggleShortcutSelected(contextMenu.shortcut!);
+                  setContextMenu(undefined);
+                }}
+              >
+                {selectedShortcutIds.has(contextMenu.shortcut.id) ? <CheckSquare size={15} /> : <Square size={15} />}
+                {selectedShortcutIds.has(contextMenu.shortcut.id) ? "Deselect" : "Select"}
               </button>
               <div className="context-menu-separator" role="separator" />
               <button type="button" role="menuitem" onClick={() => openEditShortcutModal(contextMenu.shortcut!)}>
@@ -472,6 +610,16 @@ function App() {
         />
       ) : null}
 
+      {shouldShowWelcome ? (
+        <WelcomeDialog
+          settings={state.settings}
+          resolvedTheme={resolvedTheme}
+          onPreview={setDraftSettings}
+          onExit={handleWelcomeExit}
+          onFinish={handleWelcomeFinish}
+        />
+      ) : null}
+
       {deletingShortcut ? (
         <DeleteDialog
           shortcut={deletingShortcut}
@@ -479,6 +627,15 @@ function App() {
           error={actionError}
           onCancel={() => setDeletingShortcut(undefined)}
           onConfirm={() => void confirmDelete()}
+        />
+      ) : null}
+      {isBulkDeleteOpen ? (
+        <DeleteDialog
+          count={selectedShortcutIds.size}
+          isBusy={isDeleting}
+          error={actionError}
+          onCancel={() => setIsBulkDeleteOpen(false)}
+          onConfirm={() => void confirmBulkDelete()}
         />
       ) : null}
     </main>

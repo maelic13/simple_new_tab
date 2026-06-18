@@ -10,6 +10,7 @@ import {
 } from "../types";
 import {
   deleteShortcut,
+  deleteShortcuts,
   loadCachedState,
   loadState,
   replaceState,
@@ -101,6 +102,23 @@ export function useSpeedDialStore() {
         setState((current) => {
           const nextShortcuts = { ...current.shortcuts };
           delete nextShortcuts[id];
+          return {
+            ...current,
+            shortcuts: nextShortcuts,
+            shortcutOrder: order
+          };
+        });
+      },
+
+      async removeShortcuts(ids: string[]) {
+        const idsToRemove = new Set(ids);
+        const order = state.shortcutOrder.filter((shortcutId) => !idsToRemove.has(shortcutId));
+        await deleteShortcuts(Array.from(idsToRemove), order);
+        setState((current) => {
+          const nextShortcuts = { ...current.shortcuts };
+          for (const id of idsToRemove) {
+            delete nextShortcuts[id];
+          }
           return {
             ...current,
             shortcuts: nextShortcuts,

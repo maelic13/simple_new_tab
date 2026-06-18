@@ -12,6 +12,15 @@ export type Background =
   | { kind: "svg"; value: string }
   | { kind: "localImageRef"; value: string };
 
+export type BackgroundMode = "color" | "url" | "upload";
+
+export type ThemeBackground = {
+  mode: BackgroundMode;
+  color: string;
+  url: string;
+  upload?: Extract<Background, { kind: "svg" | "localImageRef" }>;
+};
+
 export type Shortcut = {
   id: string;
   name: string;
@@ -26,6 +35,7 @@ export type Shortcut = {
 export type Settings = {
   columns: number;
   background: Background;
+  backgroundByTheme: BackgroundByTheme;
   defaultTileColor: string;
   defaultTextColor: string;
   shortcutAppearanceByTheme: ShortcutAppearanceByTheme;
@@ -33,6 +43,7 @@ export type Settings = {
   theme: ThemeMode;
   showShortcutActions: boolean;
   showAddShortcutTile: boolean;
+  welcomeCompleted: boolean;
   shortcutSize: number;
   shortcutSpacing: number;
   gridVerticalPosition: number;
@@ -46,6 +57,7 @@ export type ShortcutAppearance = {
   textColor: string;
 };
 export type ShortcutAppearanceByTheme = Record<ResolvedThemeMode, ShortcutAppearance>;
+export type BackgroundByTheme = Record<ResolvedThemeMode, ThemeBackground>;
 
 export type SpeedDialState = {
   schemaVersion: number;
@@ -89,9 +101,15 @@ export const DEFAULT_SHORTCUT_APPEARANCE_BY_THEME: ShortcutAppearanceByTheme = {
   dark: { tileColor: DARK_GRAY_TILE_COLOR, textColor: DARK_GRAY_TEXT_COLOR }
 };
 
+export const DEFAULT_BACKGROUND_BY_THEME: BackgroundByTheme = {
+  light: { mode: "color", color: DEFAULT_BACKGROUND_COLOR, url: "" },
+  dark: { mode: "color", color: DEFAULT_BACKGROUND_COLOR, url: "" }
+};
+
 export const DEFAULT_SETTINGS: Settings = {
   columns: 5,
   background: { kind: "color", value: DEFAULT_BACKGROUND_COLOR },
+  backgroundByTheme: DEFAULT_BACKGROUND_BY_THEME,
   defaultTileColor: LIGHT_GRAY_TILE_COLOR,
   defaultTextColor: LIGHT_GRAY_TEXT_COLOR,
   shortcutAppearanceByTheme: DEFAULT_SHORTCUT_APPEARANCE_BY_THEME,
@@ -99,6 +117,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showShortcutActions: true,
   showAddShortcutTile: true,
+  welcomeCompleted: false,
   shortcutSize: 100,
   shortcutSpacing: 50,
   gridVerticalPosition: 55
@@ -130,4 +149,95 @@ export function normalizeShortcutAppearanceByTheme(settings: Pick<Settings, "def
 
 export function getShortcutAppearance(settings: Settings, theme: ResolvedThemeMode): ShortcutAppearance {
   return normalizeShortcutAppearanceByTheme(settings, theme)[theme];
+}
+
+function backgroundToThemeBackground(background: Background): ThemeBackground {
+  if (background.kind === "color") {
+    return { mode: "color", color: background.value, url: "" };
+  }
+
+  if (background.kind === "url") {
+    return { mode: "url", color: DEFAULT_BACKGROUND_COLOR, url: background.value };
+  }
+
+  return { mode: "upload", color: DEFAULT_BACKGROUND_COLOR, url: "", upload: background };
+}
+
+function normalizeBackgroundUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(candidate);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function isBackgroundMode(value: unknown): value is BackgroundMode {
+  return value === "color" || value === "url" || value === "upload";
+}
+
+function normalizeThemeBackground(background: ThemeBackground): ThemeBackground {
+  const upload = background.upload?.kind === "svg" || background.upload?.kind === "localImageRef" ? background.upload : undefined;
+  const url = normalizeBackgroundUrl(background.url);
+
+  return {
+    mode: isBackgroundMode(background.mode) ? background.mode : "color",
+    color: background.color || DEFAULT_BACKGROUND_COLOR,
+    url,
+    ...(upload ? { upload } : {})
+  };
+}
+
+function isDefaultThemeBackground(background: ThemeBackground | undefined): boolean {
+  if (!background) {
+    return true;
+  }
+
+  const normalized = normalizeThemeBackground({ ...DEFAULT_BACKGROUND_BY_THEME.light, ...background });
+  return normalized.mode === "color" && normalized.color === DEFAULT_BACKGROUND_COLOR && normalized.url === "" && !normalized.upload;
+}
+
+export function normalizeBackgroundByTheme(settings: Pick<Settings, "background"> & Partial<Pick<Settings, "backgroundByTheme">>): BackgroundByTheme {
+  const fallback = backgroundToThemeBackground(settings.background);
+  const shouldUseLegacyBackground =
+    settings.background.kind !== "color" &&
+    (!settings.backgroundByTheme || (isDefaultThemeBackground(settings.backgroundByTheme.light) && isDefaultThemeBackground(settings.backgroundByTheme.dark)));
+
+  if (shouldUseLegacyBackground) {
+    const normalizedFallback = normalizeThemeBackground(fallback);
+    return {
+      light: { ...normalizedFallback },
+      dark: { ...normalizedFallback }
+    };
+  }
+
+  return {
+    light: normalizeThemeBackground({ ...fallback, ...settings.backgroundByTheme?.light }),
+    dark: normalizeThemeBackground({ ...fallback, ...settings.backgroundByTheme?.dark })
+  };
+}
+
+export function getThemeBackgroundValue(settings: Settings, theme: ResolvedThemeMode): Background {
+  const backgroundByTheme = normalizeBackgroundByTheme(settings);
+  const background = backgroundByTheme[theme];
+
+  if (background.mode === "color") {
+    return { kind: "color", value: background.color || DEFAULT_BACKGROUND_COLOR };
+  }
+
+  if (background.mode === "url" && background.url.trim()) {
+    return { kind: "url", value: background.url };
+  }
+
+  if (background.mode === "upload" && background.upload) {
+    return background.upload;
+  }
+
+  return settings.background;
 }

@@ -69,6 +69,10 @@ export async function loadAsset(ref: string): Promise<StoredAsset | undefined> {
   return withAssetStore<StoredAsset | undefined>("readonly", (store) => store.get(ref));
 }
 
+export async function deleteAsset(ref: string): Promise<void> {
+  await withAssetStore("readwrite", (store) => store.delete(ref));
+}
+
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

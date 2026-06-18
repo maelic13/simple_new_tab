@@ -64,12 +64,16 @@ describe("import/export", () => {
     expect(exportState(state).settings).toEqual(state.settings);
   });
 
-  it("exports local icon and background assets needed for full restore", async () => {
+  it("exports local icons but downgrades local uploaded backgrounds", async () => {
     const state: SpeedDialState = {
       schemaVersion: SCHEMA_VERSION,
       settings: {
         ...DEFAULT_SETTINGS,
-        background: { kind: "localImageRef", value: "background-ref" }
+        background: { kind: "localImageRef", value: "background-ref" },
+        backgroundByTheme: {
+          ...DEFAULT_SETTINGS.backgroundByTheme,
+          light: { mode: "upload", color: "#111111", url: "", upload: { kind: "localImageRef", value: "background-ref" } }
+        }
       },
       shortcuts: {
         a: {
@@ -86,13 +90,19 @@ describe("import/export", () => {
       shortcutOrder: ["a"]
     };
 
-    await expect(exportStateWithAssets(state)).resolves.toMatchObject({
+    const exported = await exportStateWithAssets(state);
+
+    expect(exported).toMatchObject({
       formatVersion: 2,
-      assets: [
-        { ref: "background-ref", data: "data:image/png;base64,background-ref" },
-        { ref: "icon-ref", data: "data:image/png;base64,icon-ref" }
-      ]
+      settings: {
+        background: { kind: "color", value: DEFAULT_SETTINGS.background.value },
+        backgroundByTheme: {
+          light: { mode: "color", color: DEFAULT_SETTINGS.background.value, url: "" }
+        }
+      },
+      assets: [{ ref: "icon-ref", data: "data:image/png;base64,icon-ref" }]
     });
+    expect(exported.assets).not.toContainEqual(expect.objectContaining({ ref: "background-ref" }));
   });
 
   it("parses native extension JSON", () => {
@@ -116,6 +126,68 @@ describe("import/export", () => {
     });
 
     expect(parsed.shortcutOrder).toEqual(["a"]);
+  });
+
+  it("promotes legacy background URLs to per-theme background settings", () => {
+    const backgroundUrl = "https://assets.speeddial2.com/themes/68.jpg";
+    const parsed = parseNativeImport({
+      app: "new-tab-speed-dial",
+      formatVersion: 2,
+      settings: {
+        columns: 8,
+        background: { kind: "url", value: backgroundUrl },
+        theme: "system"
+      },
+      shortcuts: []
+    });
+
+    expect(parsed.settings.background).toEqual({ kind: "url", value: backgroundUrl });
+    expect(parsed.settings.backgroundByTheme).toEqual({
+      light: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl },
+      dark: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl }
+    });
+  });
+
+  it("recovers legacy background URLs from exports with an uninitialized per-theme background", () => {
+    const backgroundUrl = "https://assets.speeddial2.com/themes/68.jpg";
+    const parsed = parseNativeImport({
+      app: "new-tab-speed-dial",
+      formatVersion: 2,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        background: { kind: "url", value: backgroundUrl },
+        backgroundByTheme: DEFAULT_SETTINGS.backgroundByTheme
+      },
+      shortcuts: []
+    });
+
+    expect(parsed.settings.backgroundByTheme.light).toEqual({ mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl });
+    expect(parsed.settings.backgroundByTheme.dark).toEqual({ mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl });
+  });
+
+  it("exports URL and SVG background settings but not local raster background refs", async () => {
+    const backgroundUrl = "https://assets.speeddial2.com/themes/68.jpg";
+    const state: SpeedDialState = {
+      schemaVersion: SCHEMA_VERSION,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        background: { kind: "url", value: backgroundUrl },
+        backgroundByTheme: {
+          light: { mode: "url", color: "#ffffff", url: backgroundUrl },
+          dark: { mode: "upload", color: "#000000", url: "", upload: { kind: "svg", value: "<svg />" } }
+        }
+      },
+      shortcuts: {},
+      shortcutOrder: []
+    };
+
+    const exported = await exportStateWithAssets(state);
+
+    expect(exported.settings.backgroundByTheme).toEqual({
+      light: { mode: "url", color: "#ffffff", url: backgroundUrl },
+      dark: { mode: "upload", color: "#000000", url: "", upload: { kind: "svg", value: "<svg />" } }
+    });
+    expect(exported.assets).toBeUndefined();
   });
 
   it("restores exported assets before returning imported state", async () => {

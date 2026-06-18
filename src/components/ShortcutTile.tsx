@@ -11,13 +11,16 @@ type ShortcutTileProps = {
   contentMode: TileContentMode;
   suppressOpen: boolean;
   showActions: boolean;
+  isSelected: boolean;
+  isSelectionVisible: boolean;
   onEdit: (shortcut: Shortcut) => void;
   onDelete: (shortcut: Shortcut) => void;
   onOpen: (shortcut: Shortcut) => void;
+  onToggleSelected: (shortcut: Shortcut) => void;
   onContextMenu: (event: MouseEvent, shortcut: Shortcut) => void;
 };
 
-export function ShortcutTile({ shortcut, contentMode, suppressOpen, showActions, onEdit, onDelete, onOpen, onContextMenu }: ShortcutTileProps) {
+export function ShortcutTile({ shortcut, contentMode, suppressOpen, showActions, isSelected, isSelectionVisible, onEdit, onDelete, onOpen, onToggleSelected, onContextMenu }: ShortcutTileProps) {
   const pointerStart = useRef<{ x: number; y: number } | undefined>();
   const suppressClick = useRef(false);
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -34,10 +37,20 @@ export function ShortcutTile({ shortcut, contentMode, suppressOpen, showActions,
   return (
     <article
       ref={setNodeRef}
-      className={`shortcut-tile mode-${contentMode}${isDragging ? " is-dragging" : ""}`}
+      className={`shortcut-tile mode-${contentMode}${isDragging ? " is-dragging" : ""}${isSelected ? " is-selected" : ""}${isSelectionVisible ? " selection-visible" : ""}`}
       style={style}
       onContextMenu={(event) => onContextMenu(event, shortcut)}
     >
+      {showActions || isSelectionVisible || isSelected ? (
+        <label className="shortcut-select" title={`Select ${shortcut.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            aria-label={`Select ${shortcut.name}`}
+            checked={isSelected}
+            onChange={() => onToggleSelected(shortcut)}
+          />
+        </label>
+      ) : null}
       {showActions ? (
         <div className="tile-actions">
           <button className="icon-button subtle" title="Edit" aria-label={`Edit ${shortcut.name}`} onClick={() => onEdit(shortcut)}>
@@ -78,11 +91,20 @@ export function ShortcutTile({ shortcut, contentMode, suppressOpen, showActions,
             suppressClick.current = false;
             return;
           }
+          if (isSelectionVisible) {
+            onToggleSelected(shortcut);
+            return;
+          }
           if (!suppressOpen) {
             onOpen(shortcut);
           }
         }}
         onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === " ") && isSelectionVisible) {
+            event.preventDefault();
+            onToggleSelected(shortcut);
+            return;
+          }
           if ((event.key === "Enter" || event.key === " ") && !suppressOpen) {
             event.preventDefault();
             onOpen(shortcut);

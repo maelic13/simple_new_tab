@@ -248,7 +248,11 @@ describe("SettingsPanel", () => {
       expect(onSave).toHaveBeenCalledWith(
         {
           ...DEFAULT_SETTINGS,
-          background: { kind: "color", value: "#444444" }
+          background: { kind: "color", value: "#444444" },
+          backgroundByTheme: {
+            ...DEFAULT_SETTINGS.backgroundByTheme,
+            light: { ...DEFAULT_SETTINGS.backgroundByTheme.light, color: "#444444" }
+          }
         },
         undefined
       );
@@ -278,7 +282,11 @@ describe("SettingsPanel", () => {
       expect(onSave).toHaveBeenCalledWith(
         {
           ...settings,
-          background: settings.background
+          background: settings.background,
+          backgroundByTheme: {
+            ...DEFAULT_SETTINGS.backgroundByTheme,
+            light: { ...DEFAULT_SETTINGS.backgroundByTheme.light, mode: "url" }
+          }
         },
         undefined
       );
@@ -298,10 +306,104 @@ describe("SettingsPanel", () => {
       expect(onSave).toHaveBeenCalledWith(
         {
           ...DEFAULT_SETTINGS,
-          background: { kind: "url", value: "https://example.com/background.jpg" }
+          background: { kind: "url", value: "https://example.com/background.jpg" },
+          backgroundByTheme: {
+            ...DEFAULT_SETTINGS.backgroundByTheme,
+            light: { ...DEFAULT_SETTINGS.backgroundByTheme.light, mode: "url", url: "https://example.com/background.jpg" }
+          }
         },
         undefined
       );
+    });
+  });
+
+  it("remembers last color and URL while switching background modes", async () => {
+    const onPreview = vi.fn();
+
+    renderSettingsPanel({ onPreview });
+
+    fireEvent.click(screen.getByRole("button", { name: "Background Dark gray" }));
+    fireEvent.click(screen.getByRole("button", { name: "URL" }));
+    fireEvent.change(screen.getByLabelText("Image URL"), { target: { value: "example.com/background.jpg" } });
+    fireEvent.click(screen.getByRole("button", { name: /Color/ }));
+
+    expect(screen.getByRole("button", { name: "Background Dark gray" })).toHaveClass("swatch");
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "color", value: "#444444" } }));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "URL" }));
+
+    expect(screen.getByLabelText("Image URL")).toHaveValue("example.com/background.jpg");
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "url", value: "https://example.com/background.jpg" } }));
+    });
+  });
+
+  it("keeps background drafts separate for light and dark themes", async () => {
+    const onPreview = vi.fn();
+    renderSettingsPanel({ onPreview });
+    const themeControls = within(screen.getByLabelText("Theme"));
+
+    fireEvent.click(screen.getByRole("button", { name: "URL" }));
+    fireEvent.change(screen.getByLabelText("Image URL"), { target: { value: "light.example/background.jpg" } });
+    fireEvent.click(themeControls.getByRole("button", { name: "Dark" }));
+
+    expect(screen.queryByLabelText("Image URL")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "URL" }));
+    fireEvent.change(screen.getByLabelText("Image URL"), { target: { value: "dark.example/background.jpg" } });
+    fireEvent.click(themeControls.getByRole("button", { name: "Light" }));
+
+    expect(screen.getByLabelText("Image URL")).toHaveValue("light.example/background.jpg");
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "url", value: "https://light.example/background.jpg" } }));
+    });
+
+    fireEvent.click(themeControls.getByRole("button", { name: "Dark" }));
+
+    expect(screen.getByLabelText("Image URL")).toHaveValue("dark.example/background.jpg");
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "url", value: "https://dark.example/background.jpg" } }));
+    });
+  });
+
+  it("previews uploaded background files immediately before apply", async () => {
+    const onPreview = vi.fn();
+    const view = renderSettingsPanel({ onPreview });
+
+    fireEvent.click(screen.getByRole("button", { name: /Upload image/ }));
+    const fileInput = view.container.querySelector('input[type="file"][accept="image/*,.svg"]') as HTMLInputElement;
+    const file = new File(["abc"], "background.png", { type: "image/png" });
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    expect(screen.getByText("background.png")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "url", value: "data:image/png;base64,YWJj" } }));
+    });
+  });
+
+  it("opens imported URL backgrounds in URL mode and previews them", async () => {
+    const onPreview = vi.fn();
+    const backgroundUrl = "https://assets.speeddial2.com/themes/68.jpg";
+
+    renderSettingsPanel({
+      onPreview,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        background: { kind: "url", value: backgroundUrl },
+        backgroundByTheme: {
+          light: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl },
+          dark: { mode: "url", color: DEFAULT_SETTINGS.background.value, url: backgroundUrl }
+        }
+      }
+    });
+
+    expect(screen.getByRole("button", { name: "URL" })).toHaveClass("active");
+    expect(screen.getByLabelText("Image URL")).toHaveValue(backgroundUrl);
+    await waitFor(() => {
+      expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ background: { kind: "url", value: backgroundUrl } }));
     });
   });
 
