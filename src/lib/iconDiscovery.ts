@@ -1,0 +1,186 @@
+import { getFaviconUrl } from "./url";
+
+export type DiscoveredIcon = {
+  id: string;
+  url: string;
+  label: string;
+  source: "page" | "manifest" | "fallback";
+  size?: number;
+  type?: string;
+};
+
+const ICON_REL_TOKENS = new Set(["icon", "apple-touch-icon", "apple-touch-icon-precomposed", "fluid-icon", "mask-icon"]);
+
+function parseSize(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const sizes = value
+    .split(/\s+/)
+    .map((size) => {
+      const match = /^(\d+)x(\d+)$/i.exec(size);
+      return match ? Math.max(Number(match[1]), Number(match[2])) : undefined;
+    })
+    .filter((size): size is number => Boolean(size));
+
+  return sizes.length ? Math.max(...sizes) : undefined;
+}
+
+function resolveUrl(value: string | undefined, baseUrl: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function getIconScore(icon: DiscoveredIcon): number {
+  const extension = icon.url.split(/[?#]/)[0].toLowerCase();
+  const isSvg = icon.type?.includes("svg") || extension.endsWith(".svg");
+  const isApple = icon.label.toLowerCase().includes("apple");
+  const isMask = icon.label.toLowerCase().includes("mask-icon");
+  const isFallback = icon.source === "fallback";
+  const size = icon.size ?? 16;
+
+  if (isFallback) {
+    return size;
+  }
+
+  if (isSvg && !isMask) {
+    return 1_000_000 + size;
+  }
+
+  if (isMask) {
+    return 100_000 + size;
+  }
+
+  const rasterBase = size >= 96 || isApple ? 500_000 : 50_000;
+  return rasterBase + (isApple ? 10_000 : 0) + size;
+}
+
+function uniqueIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {
+  const seen = new Set<string>();
+  return icons.filter((icon) => {
+    const key = icon.url;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function sortIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {
+  return [...icons].sort((a, b) => getIconScore(b) - getIconScore(a));
+}
+
+export function parseIconLinks(html: string, pageUrl: string): { icons: DiscoveredIcon[]; manifestUrl?: string } {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const icons: DiscoveredIcon[] = [];
+  let manifestUrl: string | undefined;
+
+  doc.querySelectorAll<HTMLLinkElement>("link[rel][href]").forEach((link, index) => {
+    const relTokens = link.rel.toLowerCase().split(/\s+/);
+    const resolved = resolveUrl(link.getAttribute("href") ?? undefined, pageUrl);
+    if (!resolved) {
+      return;
+    }
+
+    if (relTokens.includes("manifest")) {
+      manifestUrl = resolved;
+      return;
+    }
+
+    const iconRel = relTokens.find((token) => ICON_REL_TOKENS.has(token));
+    if (!iconRel) {
+      return;
+    }
+
+    icons.push({
+      id: `page-${index}`,
+      url: resolved,
+      label: link.getAttribute("rel") ?? "Page icon",
+      source: "page",
+      size: parseSize(link.getAttribute("sizes")),
+      type: link.type || undefined
+    });
+  });
+
+  return { icons: sortIcons(uniqueIcons(icons)), manifestUrl };
+}
+
+export function parseManifestIcons(manifest: unknown, manifestUrl: string): DiscoveredIcon[] {
+  if (!manifest || typeof manifest !== "object" || !Array.isArray((manifest as { icons?: unknown }).icons)) {
+    return [];
+  }
+
+  const icons = (manifest as { icons: unknown[] }).icons.flatMap((entry, index): DiscoveredIcon[] => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const icon = entry as { src?: unknown; sizes?: unknown; type?: unknown; purpose?: unknown };
+    if (typeof icon.src !== "string") {
+      return [];
+    }
+
+    const resolved = resolveUrl(icon.src, manifestUrl);
+    if (!resolved) {
+      return [];
+    }
+
+    return [
+      {
+        id: `manifest-${index}`,
+        url: resolved,
+        label: typeof icon.purpose === "string" ? `Manifest icon (${icon.purpose})` : "Manifest icon",
+        source: "manifest",
+        size: typeof icon.sizes === "string" ? parseSize(icon.sizes) : undefined,
+        type: typeof icon.type === "string" ? icon.type : undefined
+      }
+    ];
+  });
+
+  return sortIcons(uniqueIcons(icons));
+}
+
+export async function discoverIcons(pageUrl: string): Promise<DiscoveredIcon[]> {
+  const response = await fetch(pageUrl, { credentials: "omit" });
+  if (!response.ok) {
+    throw new Error(`Unable to load page metadata (${response.status}).`);
+  }
+
+  const html = await response.text();
+  const { icons: pageIcons, manifestUrl } = parseIconLinks(html, pageUrl);
+  let manifestIcons: DiscoveredIcon[] = [];
+
+  if (manifestUrl) {
+    try {
+      const manifestResponse = await fetch(manifestUrl, { credentials: "omit" });
+      if (manifestResponse.ok) {
+        manifestIcons = parseManifestIcons(await manifestResponse.json(), manifestUrl);
+      }
+    } catch {
+      manifestIcons = [];
+    }
+  }
+
+  return sortIcons(
+    uniqueIcons([
+      ...manifestIcons,
+      ...pageIcons,
+      {
+        id: "fallback",
+        url: getFaviconUrl(pageUrl),
+        label: "Fallback favicon",
+        source: "fallback",
+        size: 128
+      }
+    ])
+  );
+}
