@@ -28,6 +28,13 @@ const EMPTY_STATE: SpeedDialState = {
   shortcutOrder: []
 };
 
+const DEFAULT_STATE: SpeedDialState = {
+  schemaVersion: SCHEMA_VERSION,
+  settings: DEFAULT_SETTINGS,
+  shortcuts: {},
+  shortcutOrder: []
+};
+
 export type ShortcutDraft = {
   id?: string;
   name: string;
@@ -160,6 +167,11 @@ export function useSpeedDialStore() {
       async importState(nextState: SpeedDialState) {
         await replaceState(nextState);
         setState(nextState);
+      },
+
+      async resetToDefaults() {
+        await replaceState(DEFAULT_STATE);
+        setState(DEFAULT_STATE);
       }
     }),
     [state]

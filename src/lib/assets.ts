@@ -61,6 +61,10 @@ export async function saveAsset(data: string, mediaType: string): Promise<string
   return ref;
 }
 
+export async function saveStoredAsset(asset: StoredAsset): Promise<void> {
+  await withAssetStore("readwrite", (store) => store.put(asset));
+}
+
 export async function loadAsset(ref: string): Promise<StoredAsset | undefined> {
   return withAssetStore<StoredAsset | undefined>("readonly", (store) => store.get(ref));
 }

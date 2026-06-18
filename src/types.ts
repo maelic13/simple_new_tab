@@ -55,10 +55,18 @@ export type SpeedDialState = {
 
 export type SpeedDialExport = {
   app: "new-tab-speed-dial";
-  formatVersion: 1;
+  formatVersion: 1 | 2;
   exportedAt: string;
   settings: Settings;
   shortcuts: Shortcut[];
+  assets?: ExportedAsset[];
+};
+
+export type ExportedAsset = {
+  ref: string;
+  data: string;
+  mediaType: string;
+  createdAt: string;
 };
 
 export type ColorPreset = {

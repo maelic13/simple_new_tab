@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Link, Plus, Upload, X } from "lucide-react";
+import { Download, Link, Palette, Plus, RotateCcw, Upload, X } from "lucide-react";
 
 import { fileLooksLikeSvg, readFileAsDataUrl, readFileAsText, saveAsset, svgToDataUrl } from "../lib/assets";
 import { canSyncTextAsset } from "../lib/quota";
@@ -18,7 +18,7 @@ import {
   type TileContentMode
 } from "../types";
 
-type BackgroundMode = Background["kind"] | "upload";
+type BackgroundMode = "color" | "url" | "upload";
 
 type SettingsPanelProps = {
   settings: Settings;
@@ -28,18 +28,27 @@ type SettingsPanelProps = {
   onPreview: (settings: Settings) => void;
   onImport: (file: File) => Promise<void>;
   onExport: () => void;
+  onResetToDefaults: () => Promise<void>;
   onAddShortcut: () => void;
 };
 
 function getInitialBackgroundMode(background: Background): BackgroundMode {
-  return background.kind === "localImageRef" ? "upload" : background.kind;
+  return background.kind === "url" ? "url" : background.kind === "color" ? "color" : "upload";
+}
+
+function getInitialBackgroundColor(background: Background): string {
+  return background.kind === "color" ? background.value : DEFAULT_BACKGROUND_COLOR;
+}
+
+function getInitialBackgroundUrl(background: Background): string {
+  return background.kind === "url" ? background.value : "";
 }
 
 function getActiveAppearanceTheme(theme: ThemeMode, resolvedTheme: ResolvedThemeMode): ResolvedThemeMode {
   return theme === "system" ? resolvedTheme : theme;
 }
 
-export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPreview, onImport, onExport, onAddShortcut }: SettingsPanelProps) {
+export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPreview, onImport, onExport, onResetToDefaults, onAddShortcut }: SettingsPanelProps) {
   const initialAppearanceTheme = getActiveAppearanceTheme(settings.theme, resolvedTheme);
   const initialAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings, initialAppearanceTheme);
   const initialAppearance = initialAppearanceByTheme[initialAppearanceTheme];
@@ -58,14 +67,41 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
   const [tileContentMode, setTileContentMode] = useState<TileContentMode>(settings.tileContentMode);
   const [showShortcutActions, setShowShortcutActions] = useState(settings.showShortcutActions);
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>(getInitialBackgroundMode(settings.background));
-  const [backgroundValue, setBackgroundValue] = useState(settings.background.kind === "localImageRef" ? DEFAULT_BACKGROUND_COLOR : settings.background.value);
+  const [backgroundColor, setBackgroundColor] = useState(getInitialBackgroundColor(settings.background));
+  const [backgroundUrl, setBackgroundUrl] = useState(getInitialBackgroundUrl(settings.background));
   const [backgroundFile, setBackgroundFile] = useState<File | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [importMessage, setImportMessage] = useState<string | undefined>();
   const [saveMessage, setSaveMessage] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const activeAppearanceTheme = getActiveAppearanceTheme(theme, resolvedTheme);
+
+  useEffect(() => {
+    const nextAppearanceTheme = getActiveAppearanceTheme(settings.theme, resolvedTheme);
+    const nextAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings, nextAppearanceTheme);
+    const nextAppearance = nextAppearanceByTheme[nextAppearanceTheme];
+
+    setColumns(settings.columns);
+    setColumnsDraft(String(settings.columns));
+    setShortcutSize(settings.shortcutSize);
+    setShortcutSizeDraft(String(settings.shortcutSize));
+    setShortcutSpacing(settings.shortcutSpacing);
+    setShortcutSpacingDraft(String(settings.shortcutSpacing));
+    setGridVerticalPosition(settings.gridVerticalPosition);
+    setGridVerticalPositionDraft(String(settings.gridVerticalPosition));
+    setShortcutAppearanceByTheme(nextAppearanceByTheme);
+    setDefaultTileColor(nextAppearance.tileColor);
+    setDefaultTextColor(nextAppearance.textColor);
+    setTheme(settings.theme);
+    setTileContentMode(settings.tileContentMode);
+    setShowShortcutActions(settings.showShortcutActions);
+    setBackgroundMode(getInitialBackgroundMode(settings.background));
+    setBackgroundColor(getInitialBackgroundColor(settings.background));
+    setBackgroundUrl(getInitialBackgroundUrl(settings.background));
+    setBackgroundFile(undefined);
+  }, [settings]);
 
   async function saveNextSettings(nextSettings: Settings, options?: { applyShortcutDefaults?: boolean }): Promise<boolean> {
     setError(undefined);
@@ -165,18 +201,14 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
 
   function getPreviewBackground(): Background {
     if (backgroundMode === "color") {
-      return { kind: "color", value: backgroundValue || DEFAULT_BACKGROUND_COLOR };
+      return { kind: "color", value: backgroundColor || DEFAULT_BACKGROUND_COLOR };
     }
 
     if (backgroundMode === "url") {
-      return { kind: "url", value: backgroundValue };
+      return backgroundUrl.trim() ? { kind: "url", value: backgroundUrl } : settings.background;
     }
 
-    if (backgroundMode === "svg") {
-      return backgroundValue.trim() ? { kind: "svg", value: backgroundValue } : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
-    }
-
-    return settings.background.kind === "localImageRef" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+    return backgroundFile || settings.background.kind === "localImageRef" || settings.background.kind === "svg" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
   }
 
   useEffect(() => {
@@ -193,7 +225,9 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
     tileContentMode,
     showShortcutActions,
     backgroundMode,
-    backgroundValue
+    backgroundColor,
+    backgroundUrl,
+    backgroundFile
   ]);
 
   function updateShortcutAppearance(tileColor: string, textColor: string) {
@@ -247,31 +281,17 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
 
   async function buildBackground(fileOverride?: File): Promise<Background> {
     if (backgroundMode === "color") {
-      return { kind: "color", value: backgroundValue || DEFAULT_BACKGROUND_COLOR };
+      return { kind: "color", value: backgroundColor || DEFAULT_BACKGROUND_COLOR };
     }
 
     if (backgroundMode === "url") {
-      return { kind: "url", value: normalizeShortcutUrl(backgroundValue) };
-    }
-
-    if (backgroundMode === "svg") {
-      const text = backgroundValue.trim();
-      if (!text) {
-        return { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
-      }
-
-      if (canSyncTextAsset(text)) {
-        return { kind: "svg", value: text };
-      }
-
-      const ref = await saveAsset(svgToDataUrl(text), "image/svg+xml");
-      return { kind: "localImageRef", value: ref };
+      return backgroundUrl.trim() ? { kind: "url", value: normalizeShortcutUrl(backgroundUrl) } : settings.background;
     }
 
     const selectedFile = fileOverride ?? backgroundFile;
 
     if (!selectedFile) {
-      return settings.background.kind === "localImageRef" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
+      return settings.background.kind === "localImageRef" || settings.background.kind === "svg" ? settings.background : { kind: "color", value: DEFAULT_BACKGROUND_COLOR };
     }
 
     if (fileLooksLikeSvg(selectedFile)) {
@@ -304,6 +324,24 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
       setError(error instanceof Error ? error.message : "Unable to import file.");
     } finally {
       setIsImporting(false);
+    }
+  }
+
+  async function handleResetToDefaults() {
+    if (!window.confirm("Reset settings and remove all shortcuts? This cannot be undone unless you have an export.")) {
+      return;
+    }
+
+    setError(undefined);
+    setSaveMessage(undefined);
+    setIsResetting(true);
+
+    try {
+      await onResetToDefaults();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to reset defaults.");
+    } finally {
+      setIsResetting(false);
     }
   }
 
@@ -569,7 +607,7 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
         <section className="settings-section">
           <h3>Background</h3>
           <fieldset className="segmented-field" aria-label="Background">
-            <div className="segmented-control">
+            <div className="segmented-control three">
               <button
                 type="button"
                 className={backgroundMode === "color" ? "active" : ""}
@@ -577,18 +615,16 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
                   setBackgroundMode("color");
                 }}
               >
+                <Palette size={15} />
                 Color
               </button>
               <button type="button" className={backgroundMode === "url" ? "active" : ""} onClick={() => setBackgroundMode("url")}>
                 <Link size={15} />
                 URL
               </button>
-              <button type="button" className={backgroundMode === "svg" ? "active" : ""} onClick={() => setBackgroundMode("svg")}>
-                SVG
-              </button>
               <button type="button" className={backgroundMode === "upload" ? "active" : ""} onClick={() => setBackgroundMode("upload")}>
                 <Upload size={15} />
-                Upload
+                Upload image
               </button>
             </div>
           </fieldset>
@@ -606,17 +642,17 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
                     aria-label={`Background ${preset.name}`}
                     style={{ backgroundColor: preset.tileColor }}
                     onClick={() => {
-                      setBackgroundValue(preset.tileColor);
+                      setBackgroundColor(preset.tileColor);
                     }}
                   />
                 ))}
-                <label className="swatch color-swatch custom-color-swatch" title="Custom" aria-label="Custom background color" style={{ backgroundColor: backgroundValue }}>
+                <label className="swatch color-swatch custom-color-swatch" title="Custom" aria-label="Custom background color" style={{ backgroundColor }}>
                   <input
                     type="color"
-                    value={backgroundValue}
+                    value={backgroundColor}
                     onChange={(event) => {
                       const value = event.target.value;
-                      setBackgroundValue(value);
+                      setBackgroundColor(value);
                     }}
                   />
                 </label>
@@ -628,50 +664,56 @@ export function SettingsPanel({ settings, resolvedTheme, onClose, onSave, onPrev
             <label className="field">
               <span>Image URL</span>
               <input
-                value={backgroundValue}
-                onChange={(event) => setBackgroundValue(event.target.value)}
+                value={backgroundUrl}
+                onChange={(event) => setBackgroundUrl(event.target.value)}
                 placeholder="https://example.com/background.jpg"
-              />
-            </label>
-          ) : null}
-
-          {backgroundMode === "svg" ? (
-            <label className="field">
-              <span>SVG</span>
-              <textarea
-                value={backgroundValue}
-                onChange={(event) => setBackgroundValue(event.target.value)}
-                rows={7}
-                spellCheck={false}
               />
             </label>
           ) : null}
 
           {backgroundMode === "upload" ? (
             <label className="field">
-              <span>Image</span>
-              <input
-                type="file"
-                accept="image/*,.svg"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  setBackgroundFile(file);
-                }}
-              />
+              <span>Upload image</span>
+              <span className="upload-input-row">
+                <span className="button secondary upload-file-button">
+                  Choose file
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      setBackgroundFile(file);
+                    }}
+                  />
+                </span>
+                <span className="upload-file-name">{backgroundFile?.name ?? "No file chosen"}</span>
+              </span>
+              <p className="form-hint">SVG backgrounds are synced when they fit the sync limit. Raster uploads stay local on this device and are included in exports.</p>
             </label>
           ) : null}
         </section>
 
+        <section className="settings-section">
+          <h3>Data</h3>
+          <div className="data-action-row">
+            <button className="button danger" type="button" onClick={() => void handleResetToDefaults()} disabled={isSaving || isResetting}>
+              <RotateCcw size={16} />
+              Reset defaults
+            </button>
+            <small>Restores system theme, default colors, default background, and no shortcuts.</small>
+          </div>
+        </section>
+
           {error ? <p className="form-error">{error}</p> : null}
           {saveMessage ? <p className="form-success">{saveMessage}</p> : null}
-          {isSaving ? <p className="form-status">Saving...</p> : null}
+          {isSaving || isResetting ? <p className="form-status">{isResetting ? "Resetting..." : "Saving..."}</p> : null}
         </div>
 
         <div className="settings-footer">
-          <button className="button secondary" type="button" onClick={onClose} disabled={isSaving}>
+          <button className="button secondary" type="button" onClick={onClose} disabled={isSaving || isResetting}>
             Cancel
           </button>
-          <button className="button primary" type="button" onClick={() => void handleApply()} disabled={isSaving}>
+          <button className="button primary" type="button" onClick={() => void handleApply()} disabled={isSaving || isResetting}>
             Apply
           </button>
         </div>

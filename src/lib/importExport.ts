@@ -6,11 +6,13 @@ import {
   DARK_GRAY_TILE_COLOR,
   SCHEMA_VERSION,
   normalizeShortcutAppearanceByTheme,
+  type ExportedAsset,
   type Settings,
   type Shortcut,
   type SpeedDialExport,
   type SpeedDialState
 } from "../types";
+import { loadAsset, saveStoredAsset, type StoredAsset } from "./assets";
 import { normalizeShortcutUrl } from "./url";
 
 type UnknownRecord = Record<string, unknown>;
@@ -142,23 +144,61 @@ function byShortcutPosition(a: UnknownRecord, b: UnknownRecord): number {
   return aPosition - bPosition;
 }
 
+function completeSettings(value: unknown): Settings {
+  const settings = isRecord(value) ? ({ ...DEFAULT_SETTINGS, ...value } as Settings) : { ...DEFAULT_SETTINGS };
+  settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
+  return settings;
+}
+
 export function exportState(state: SpeedDialState): SpeedDialExport {
   return {
     app: "new-tab-speed-dial",
-    formatVersion: 1,
+    formatVersion: 2,
     exportedAt: new Date().toISOString(),
-    settings: state.settings,
+    settings: completeSettings(state.settings),
     shortcuts: state.shortcutOrder.map((id) => state.shortcuts[id]).filter((shortcut): shortcut is Shortcut => Boolean(shortcut))
   };
 }
 
+function getLocalAssetRefs(state: SpeedDialState): string[] {
+  const refs = new Set<string>();
+
+  if (state.settings.background.kind === "localImageRef") {
+    refs.add(state.settings.background.value);
+  }
+
+  for (const shortcut of Object.values(state.shortcuts)) {
+    if (shortcut.icon.kind === "localImageRef") {
+      refs.add(shortcut.icon.ref);
+    }
+  }
+
+  return Array.from(refs);
+}
+
+export async function exportStateWithAssets(state: SpeedDialState): Promise<SpeedDialExport> {
+  const exported = exportState(state);
+  const assets = (
+    await Promise.all(
+      getLocalAssetRefs(state).map(async (ref) => {
+        try {
+          return await loadAsset(ref);
+        } catch {
+          return undefined;
+        }
+      })
+    )
+  ).filter((asset): asset is StoredAsset => Boolean(asset));
+
+  return assets.length ? { ...exported, assets } : exported;
+}
+
 export function parseNativeImport(value: unknown): SpeedDialState {
-  if (!isRecord(value) || value.app !== "new-tab-speed-dial" || value.formatVersion !== 1 || !Array.isArray(value.shortcuts)) {
+  if (!isRecord(value) || value.app !== "new-tab-speed-dial" || (value.formatVersion !== 1 && value.formatVersion !== 2) || !Array.isArray(value.shortcuts)) {
     throw new Error("Unsupported import file.");
   }
 
-  const settings = isRecord(value.settings) ? ({ ...DEFAULT_SETTINGS, ...value.settings } as Settings) : { ...DEFAULT_SETTINGS };
-  settings.shortcutAppearanceByTheme = normalizeShortcutAppearanceByTheme(settings);
+  const settings = completeSettings(value.settings);
   const shortcuts: Record<string, Shortcut> = {};
   const shortcutOrder: string[] = [];
 
@@ -210,7 +250,7 @@ export function parseLegacyShortcutExport(value: unknown): SpeedDialExport {
 
   return {
     app: "new-tab-speed-dial",
-    formatVersion: 1,
+    formatVersion: 2,
     exportedAt: new Date().toISOString(),
     settings: {
       ...DEFAULT_SETTINGS,
@@ -228,10 +268,39 @@ export function parseLegacyShortcutExport(value: unknown): SpeedDialExport {
   };
 }
 
+function parseExportedAssets(value: unknown): ExportedAsset[] {
+  if (!isRecord(value) || !Array.isArray(value.assets)) {
+    return [];
+  }
+
+  return value.assets.filter((asset): asset is ExportedAsset => {
+    if (!isRecord(asset)) {
+      return false;
+    }
+
+    return (
+      typeof asset.ref === "string" &&
+      typeof asset.data === "string" &&
+      typeof asset.mediaType === "string" &&
+      typeof asset.createdAt === "string"
+    );
+  });
+}
+
+export async function restoreImportedAssets(assets: ExportedAsset[]): Promise<void> {
+  await Promise.all(assets.map((asset) => saveStoredAsset(asset)));
+}
+
 export function parseImportFile(value: unknown): SpeedDialState {
   if (isRecord(value) && value.app === "new-tab-speed-dial") {
     return parseNativeImport(value);
   }
 
   return parseNativeImport(parseLegacyShortcutExport(value));
+}
+
+export async function importStateWithAssets(value: unknown): Promise<SpeedDialState> {
+  const state = parseImportFile(value);
+  await restoreImportedAssets(parseExportedAssets(value));
+  return state;
 }

@@ -6,6 +6,7 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 
 - New tab override for Chromium-based browsers.
 - Shortcut add, edit, delete, open, drag reorder, and right-click actions.
+- First-run empty state with Add shortcut and Settings actions.
 - Configurable columns from 2 to 12 with responsive reduction on narrow screens.
 - Relative shortcut size, spacing, and vertical position controls for different screens.
 - Chrome sync storage for shortcut metadata and settings.
@@ -16,7 +17,9 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - Tile content modes: icon and name, icon only, or name only.
 - Optional hover buttons for shortcut edit/remove.
 - Background color presets, same-size custom color picker, image URL, SVG text, and local upload.
-- Import and export for the extension JSON format, with legacy shortcut import support.
+- Import and export for full extension backups, including local uploaded icons and backgrounds; export prompts for a backup filename and location when supported by the browser.
+- Legacy shortcut import support.
+- Reset defaults action to restore default settings and clear shortcuts.
 
 ## Install For Local Testing
 
@@ -59,7 +62,7 @@ Simple New Tab uses `chrome.storage.sync` for compact JSON metadata:
 - shortcut order
 - shortcut name, URL, icon reference, and colors
 
-Uploaded raster images are stored locally in IndexedDB and do not sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. On another device, local-only assets degrade to the saved metadata or favicon behavior.
+Uploaded raster images are stored locally in IndexedDB and do not sync through Chrome sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. Extension exports include local uploaded assets so importing the backup can restore the full visual state on another install.
 
 ## Release Build
 

@@ -8,6 +8,7 @@ Initial release of Simple New Tab.
 
 - Manifest V3 Chromium new-tab extension.
 - Shortcut create, edit, delete, open, drag reorder, and right-click actions.
+- First-run empty state with Add shortcut and Settings actions.
 - Right-click shortcut menu with open in new tab, copy URL, reload icon, edit, and remove.
 - Right-click empty-space menu with add and settings.
 - Configurable column count from 2 to 12.
@@ -21,8 +22,9 @@ Initial release of Simple New Tab.
 - Startup cache and preload background to reduce new-tab white flash.
 - Icon discovery from page links, web manifests, well-known favicon paths, and favicon fallback.
 - Icon filtering that only shows browser-renderable candidates.
-- Import and export for extension JSON.
+- Import and export for full extension backups, including local uploaded icons and backgrounds, with a save dialog for backup filename and location when supported.
 - Legacy shortcut import support.
+- Reset defaults action that restores default settings and clears shortcuts.
 - Extension icon assets for 16, 32, 48, and 128 px.
 
 ### Known Limitations

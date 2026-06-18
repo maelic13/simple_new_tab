@@ -8,9 +8,10 @@ import { useResponsiveColumns } from "./hooks/useResponsiveColumns";
 import { useSpeedDialStore } from "./hooks/useSpeedDialStore";
 import { svgToDataUrl } from "./lib/assets";
 import { discoverIcons } from "./lib/iconDiscovery";
-import { exportState, parseImportFile } from "./lib/importExport";
+import { exportStateWithAssets, importStateWithAssets } from "./lib/importExport";
 import { getShortcutAppearance, type Settings, type Shortcut, type ThemeMode } from "./types";
 import { DeleteDialog } from "./components/DeleteDialog";
+import { EmptySpeedDial } from "./components/EmptySpeedDial";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ShortcutModal } from "./components/ShortcutModal";
 import { ShortcutTile } from "./components/ShortcutTile";
@@ -26,6 +27,19 @@ function getSystemTheme(): "light" | "dark" {
 function resolveTheme(theme: ThemeMode, systemTheme: "light" | "dark"): "light" | "dark" {
   return theme === "system" ? systemTheme : theme;
 }
+
+type SaveFilePicker = (options?: {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
+}) => Promise<{
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+}>;
 
 function App() {
   const { state, isLoading, error, actions, refresh } = useSpeedDialStore();
@@ -131,13 +145,13 @@ function App() {
     const gap = Math.round((Math.min(100, Math.max(0, displaySettings.shortcutSpacing)) / 100) * 32);
     const tileWidth = Math.round(190 * sizeScale);
     const maxWidth = columns * tileWidth + Math.max(0, columns - 1) * gap;
-    const verticalVh = Math.round(8 + Math.min(100, Math.max(0, displaySettings.gridVerticalPosition)) * 0.35);
+    const verticalVh = Math.round(6 + Math.min(100, Math.max(0, displaySettings.gridVerticalPosition)) * 0.54);
 
     return {
       "--columns": columns,
       "--grid-max-width": `${maxWidth}px`,
       "--shortcut-gap": `${gap}px`,
-      "--grid-top": `clamp(56px, ${verticalVh}vh, 320px)`,
+      "--grid-top": `clamp(56px, ${verticalVh}vh, 70vh)`,
       "--shortcut-min-height": `${Math.round(126 * sizeScale)}px`,
       "--shortcut-icon-shell": `${Math.round(76 * sizeScale)}px`,
       "--shortcut-icon-size": `${Math.round(64 * sizeScale)}px`,
@@ -286,21 +300,60 @@ function App() {
     }
   }
 
-  function handleExport() {
-    const payload = JSON.stringify(exportState(state), null, 2);
+  async function handleExport() {
+    const payload = JSON.stringify(await exportStateWithAssets(state), null, 2);
     const blob = new Blob([payload], { type: "application/json" });
+    const suggestedName = `simple-new-tab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const showSaveFilePicker = (window as Window & { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
+
+    if (showSaveFilePicker) {
+      try {
+        const handle = await showSaveFilePicker({
+          suggestedName,
+          types: [
+            {
+              description: "Simple New Tab backup",
+              accept: { "application/json": [".json"] }
+            }
+          ]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        throw error;
+      }
+    }
+
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `new-tab-speed-dial-export-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = suggestedName;
+      anchor.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   async function handleImport(file: File) {
     const text = await file.text();
-    const nextState = parseImportFile(JSON.parse(text) as unknown);
+    const nextState = await importStateWithAssets(JSON.parse(text) as unknown);
     await actions.importState(nextState);
+    setDraftSettings(nextState.settings);
+  }
+
+  async function handleResetToDefaults() {
+    await actions.resetToDefaults();
+    setDraftSettings(undefined);
+    setSettingsOpen(false);
+    setIsShortcutModalOpen(false);
+    setDeletingShortcut(undefined);
+    setContextMenu(undefined);
   }
 
   return (
@@ -334,6 +387,12 @@ function App() {
                   />
                 ))}
               </section>
+              {shortcuts.length === 0 ? (
+                <EmptySpeedDial
+                  onAddShortcut={openNewShortcutModal}
+                  onOpenSettings={openSettingsPanel}
+                />
+              ) : null}
             </SortableContext>
           </DndContext>
         )}
@@ -412,7 +471,8 @@ function App() {
           onSave={saveSettings}
           onPreview={setDraftSettings}
           onImport={handleImport}
-          onExport={handleExport}
+          onExport={() => void handleExport()}
+          onResetToDefaults={handleResetToDefaults}
           onAddShortcut={openNewShortcutModal}
         />
       ) : null}
