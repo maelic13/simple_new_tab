@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { discoverIcons, parseIconLinks, parseManifestIcons } from "./iconDiscovery";
 
@@ -86,6 +86,29 @@ describe("icon discovery", () => {
     const originalImage = installImageMock((url) => responses.get(url)?.ok ?? false);
     globalThis.fetch = ((url: RequestInfo | URL) =>
       Promise.resolve(responses.get(String(url)) ?? new Response("", { status: 404 }))) as typeof fetch;
+
+    try {
+      const icons = await discoverIcons("https://example.com/");
+      expect(icons.map((icon) => icon.url)).toEqual([
+        "https://example.com/favicon.ico",
+        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128"
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+      globalThis.Image = originalImage;
+    }
+  });
+
+  it("falls back to renderable favicon candidates when page metadata cannot be fetched", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalImage = installImageMock((url) => url.includes("/favicon.ico") || url.includes("google.com/s2/favicons"));
+    globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url) === "https://example.com/") {
+        throw new TypeError("Failed to fetch");
+      }
+
+      return new Response("", { status: 404 });
+    }) as typeof fetch;
 
     try {
       const icons = await discoverIcons("https://example.com/");

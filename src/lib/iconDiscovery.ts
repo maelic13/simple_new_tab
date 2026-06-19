@@ -252,14 +252,21 @@ function getWellKnownIcons(pageUrl: string): DiscoveredIcon[] {
 }
 
 export async function discoverIcons(pageUrl: string): Promise<DiscoveredIcon[]> {
-  const response = await fetch(pageUrl, { credentials: "omit" });
-  if (!response.ok) {
-    throw new Error(`Unable to load page metadata (${response.status}).`);
-  }
-
-  const html = await response.text();
-  const { icons: pageIcons, manifestUrl } = parseIconLinks(html, pageUrl);
+  let pageIcons: DiscoveredIcon[] = [];
+  let manifestUrl: string | undefined;
   let manifestIcons: DiscoveredIcon[] = [];
+
+  try {
+    const response = await fetch(pageUrl, { credentials: "omit" });
+    if (response.ok) {
+      const parsed = parseIconLinks(await response.text(), pageUrl);
+      pageIcons = parsed.icons;
+      manifestUrl = parsed.manifestUrl;
+    }
+  } catch {
+    // Without broad host permissions, some sites block metadata fetches.
+    // Fallback image URLs can still be rendered directly by the browser.
+  }
 
   if (manifestUrl) {
     try {

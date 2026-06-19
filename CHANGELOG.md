@@ -26,6 +26,7 @@ Initial release of Simple New Tab.
 - Split sync storage for settings and per-theme background preferences so all JSON settings sync without depending on one large settings entry.
 - Startup cache and preload background to reduce new-tab white flash.
 - Icon discovery from page links, web manifests, well-known favicon paths, and favicon fallback.
+- Icon discovery fallback that still returns loadable favicon candidates when page metadata cannot be fetched without host permissions.
 - Icon filtering that only shows browser-renderable candidates.
 - Import and export for full extension backups, including local uploaded shortcut icons, with URL and SVG background restore support and a Save As dialog for backup filename and location.
 - Legacy shortcut import support.
@@ -38,7 +39,7 @@ Initial release of Simple New Tab.
 
 - Raster uploads remain local and do not sync.
 - Local raster background uploads are not portable in exported backups and reset to the default color.
-- Some websites may expose fewer icon candidates because the extension does not request broad host permissions.
+- Some websites may expose fewer metadata icon candidates because the extension does not request broad host permissions.
 - Remote background images can still appear after the browser/network cache resolves them.
 - A browser-level blank first frame may still be visible before extension document code runs.
 - Save As behavior for downloads depends on the browser and its download settings.

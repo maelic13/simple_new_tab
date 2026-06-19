@@ -220,7 +220,7 @@ export function ShortcutModal({ shortcut, defaultTileColor, defaultTextColor, on
               {iconUrl.trim() ? (
                 <div className="loaded-icon-preview">
                   <img src={iconUrl.trim()} alt="" />
-                  <span>Auto-loaded icon.</span>
+                  <span>Icon preview.</span>
                 </div>
               ) : null}
             </div>

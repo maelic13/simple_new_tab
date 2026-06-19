@@ -68,4 +68,14 @@ describe("ShortcutModal", () => {
       expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ icon: { kind: "favicon" } }));
     });
   });
+
+  it("labels manually entered icon URLs as previews", () => {
+    render(<ShortcutModal defaultTileColor="#ffffff" defaultTextColor="#111827" onClose={vi.fn()} onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "URL" }));
+    fireEvent.change(screen.getByLabelText("Icon URL"), { target: { value: "https://example.com/icon.svg" } });
+
+    expect(screen.getByText("Icon preview.")).toBeInTheDocument();
+    expect(screen.queryByText("Auto-loaded icon.")).not.toBeInTheDocument();
+  });
 });
