@@ -44,28 +44,23 @@ function getIconScore(icon: DiscoveredIcon): number {
   const isSvg = icon.type?.includes("svg") || extension.endsWith(".svg");
   const isApple = icon.label.toLowerCase().includes("apple");
   const isMask = icon.label.toLowerCase().includes("mask-icon");
-  const isFallback = icon.source === "fallback";
-  const isWellKnown = icon.source === "well-known";
   const size = icon.size ?? 16;
-
-  if (isFallback) {
-    return size;
-  }
+  const sourceScore = {
+    manifest: 40,
+    page: 30,
+    "well-known": 20,
+    fallback: 10
+  }[icon.source];
 
   if (isSvg && !isMask) {
-    return 1_000_000 + size;
+    return 4_000_000 + size + sourceScore;
   }
 
   if (isMask) {
-    return 100_000 + size;
+    return 3_000_000 + size + sourceScore;
   }
 
-  if (isWellKnown) {
-    return 80_000 + size;
-  }
-
-  const rasterBase = size >= 96 || isApple ? 500_000 : 50_000;
-  return rasterBase + (isApple ? 10_000 : 0) + size;
+  return 2_000_000 + size * 1_000 + (isApple ? 100 : 0) + sourceScore;
 }
 
 function uniqueIcons(icons: DiscoveredIcon[]): DiscoveredIcon[] {

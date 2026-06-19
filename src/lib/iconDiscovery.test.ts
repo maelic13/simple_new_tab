@@ -41,7 +41,7 @@ describe("icon discovery", () => {
     expect(parsed.icons.map((icon) => icon.url)).toEqual(["https://example.com/icon.svg", "https://example.com/favicon.ico"]);
   });
 
-  it("sorts full-color scalable icons before large rasters and mask icons", () => {
+  it("sorts scalable icons before rasters and larger rasters before smaller ones", () => {
     const parsed = parseIconLinks(
       `
         <link rel="mask-icon" href="/mask.svg">
@@ -54,8 +54,8 @@ describe("icon discovery", () => {
 
     expect(parsed.icons.map((icon) => icon.url)).toEqual([
       "https://example.com/icon.svg",
-      "https://example.com/apple-512.png",
       "https://example.com/mask.svg",
+      "https://example.com/apple-512.png",
       "https://example.com/favicon.ico"
     ]);
   });
@@ -74,7 +74,7 @@ describe("icon discovery", () => {
     expect(icons.map((icon) => icon.url)).toEqual(["https://example.com/icon-192.png", "https://example.com/icon-48.png"]);
   });
 
-  it("includes site-root favicon candidates before the external fallback", async () => {
+  it("puts higher-resolution favicon fallback before smaller site-root favicon candidates", async () => {
     const responses = new Map<string, Response>([
       ["https://example.com/", new Response("<html></html>", { status: 200 })],
       ["https://example.com/favicon.ico", new Response("", { status: 200 })],
@@ -90,8 +90,8 @@ describe("icon discovery", () => {
     try {
       const icons = await discoverIcons("https://example.com/");
       expect(icons.map((icon) => icon.url)).toEqual([
-        "https://example.com/favicon.ico",
-        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128"
+        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128",
+        "https://example.com/favicon.ico"
       ]);
     } finally {
       globalThis.fetch = originalFetch;
@@ -113,8 +113,8 @@ describe("icon discovery", () => {
     try {
       const icons = await discoverIcons("https://example.com/");
       expect(icons.map((icon) => icon.url)).toEqual([
-        "https://example.com/favicon.ico",
-        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128"
+        "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2F&sz=128",
+        "https://example.com/favicon.ico"
       ]);
     } finally {
       globalThis.fetch = originalFetch;
