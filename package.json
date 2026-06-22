@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:firefox": "vite --mode firefox",
     "build": "tsc --noEmit && vite build",
+    "build:firefox": "tsc --noEmit && vite build --mode firefox",
+    "lint:firefox": "pnpm dlx web-ext lint --source-dir dist-firefox",
     "test": "vitest run",
     "test:watch": "vitest"
   },

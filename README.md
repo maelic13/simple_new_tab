@@ -1,10 +1,10 @@
 # Simple New Tab
 
-A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrome sync metadata, custom icons, first-run setup, import/export backups, configurable themes, and background customization.
+A Manifest V3 new-tab extension for Chromium and Firefox with a compact speed-dial layout, browser sync metadata, custom icons, first-run setup, import/export backups, configurable themes, and background customization.
 
 ## Features
 
-- New tab override for Chromium-based browsers.
+- New tab override for Chromium-based browsers and Firefox.
 - Toolbar popup to add the current page as a shortcut.
 - First-run setup for theme, background, shortcut appearance, and recommended starter shortcuts.
 - Shortcut add, edit, delete, open, drag reorder, and right-click actions.
@@ -12,7 +12,7 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - Optional plus tile at the end of the grid for adding shortcuts.
 - Configurable columns from 2 to 12 with responsive reduction on narrow screens.
 - Relative shortcut size, spacing, and vertical position controls for different screens.
-- Chrome sync storage for shortcut metadata and settings.
+- Browser sync storage for shortcut metadata and settings.
 - Local IndexedDB storage for uploaded raster assets that are too large or unsuitable for sync.
 - Icon discovery from page metadata, web manifests, well-known favicon paths, and favicon fallback.
 - Custom icon URL and image upload support.
@@ -26,6 +26,8 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 - Reset defaults action to restore default settings, clear shortcuts, and show first-run setup again.
 
 ## Install For Local Testing
+
+### Chromium
 
 1. Build the extension:
 
@@ -42,6 +44,22 @@ A Manifest V3 Chromium new-tab extension with a compact speed-dial layout, Chrom
 
 After rebuilding, click `Reload` on the extension card in `chrome://extensions`.
 
+### Firefox
+
+1. Build the Firefox extension:
+
+   ```powershell
+   pnpm install
+   pnpm build:firefox
+   ```
+
+2. Open Firefox.
+3. Go to `about:debugging#/runtime/this-firefox`.
+4. Click `Load Temporary Add-on...`.
+5. Select `dist-firefox/manifest.json`.
+
+After rebuilding, reload the temporary extension from `about:debugging`.
+
 ## Development
 
 ```powershell
@@ -55,7 +73,9 @@ Useful scripts:
 | Command | Purpose |
 |---|---|
 | `pnpm test` | Run the Vitest suite. |
-| `pnpm build` | Typecheck and build the extension into `dist`. |
+| `pnpm build` | Typecheck and build the Chromium extension into `dist`. |
+| `pnpm build:firefox` | Typecheck and build the Firefox extension into `dist-firefox`. |
+| `pnpm lint:firefox` | Run Mozilla's extension linter against `dist-firefox`. |
 | `pnpm dev` | Start Vite development mode. |
 
 ## Release Checklist
@@ -74,6 +94,8 @@ Useful scripts:
    pnpm install
    pnpm test
    pnpm build
+   pnpm build:firefox
+   pnpm lint:firefox
    ```
 
 3. Load `dist` as an unpacked extension and smoke-test:
@@ -88,15 +110,17 @@ Useful scripts:
 
 ## Sync Behavior
 
-Simple New Tab uses `chrome.storage.sync` for compact JSON metadata:
+Simple New Tab uses browser sync storage for compact JSON metadata:
 
 - settings
 - shortcut order
 - shortcut name, URL, icon reference, and colors
 
-Settings are split into compact sync entries so every JSON setting is carried through Chrome sync, including light/dark background preferences. Shortcut records are stored separately to avoid one large sync item.
+Settings are split into compact sync entries so every JSON setting is carried through the browser's sync service, including light/dark background preferences. Shortcut records are stored separately to avoid one large sync item.
 
-Uploaded raster images are stored locally in IndexedDB and do not sync through Chrome sync. SVG text icons and SVG backgrounds are synced when they fit the Chrome sync quota. Extension exports include local uploaded shortcut icons; local raster background uploads stay on this device and reset to the default color in exported backups.
+Uploaded raster images are stored locally in IndexedDB and do not sync through browser sync. SVG text icons and SVG backgrounds are synced when they fit the browser sync quota. Extension exports include local uploaded shortcut icons; local raster background uploads stay on this device and reset to the default color in exported backups.
+
+Chromium sync and Firefox sync are separate browser services. Data does not sync across browser families; use export/import to move settings between them.
 
 Background images use cover/fill sizing, centered on the page.
 
@@ -112,7 +136,7 @@ Background images use cover/fill sizing, centered on the page.
 
 ## Release Build
 
-Build and package:
+Build and package for Chromium:
 
 ```powershell
 pnpm build
@@ -122,11 +146,22 @@ Compress-Archive -Path dist\* -DestinationPath release\simple-new-tab-1.0.0.zip 
 
 The ZIP should contain `manifest.json` at its root.
 
+Build and package for Firefox:
+
+```powershell
+pnpm build:firefox
+pnpm lint:firefox
+New-Item -ItemType Directory -Path release -Force
+Compress-Archive -Path dist-firefox\* -DestinationPath release\simple-new-tab-firefox-1.0.0.zip -Force
+```
+
+Firefox packages for permanent installation must be signed by Mozilla Add-ons.
+
 ## Browser Notes
 
-- Chrome sync requires the browser profile to be signed in and extension sync enabled.
-- Chrome sync propagates JSON settings and shortcut metadata. Local raster image files are device-local unless moved by an explicit export/import backup.
-- Manually loaded unpacked extensions can use sync within the same extension ID/install context, but Chrome Web Store distribution is the reliable path for stable cross-device extension identity.
-- The browser controls whether export opens a native Save As picker. The extension requests Save As through the File System Access API or `chrome.downloads.download({ saveAs: true })` when available.
+- Browser sync requires the browser profile to be signed in and extension/add-on sync enabled.
+- Browser sync propagates JSON settings and shortcut metadata within the same browser family. Local raster image files are device-local unless moved by an explicit export/import backup.
+- Manually loaded unpacked/temporary extensions can use sync within the same extension ID/install context, but store-signed distribution is the reliable path for stable cross-device extension identity.
+- The browser controls whether export opens a native Save As picker. The extension requests Save As through the File System Access API or extension downloads API when available.
 - The extension intentionally avoids broad host permissions. Some websites may expose fewer icon candidates if their metadata cannot be fetched cross-origin; root favicon candidates, favicon fallback, and user-selected icon URLs still work.
 - Some browsers, including Brave, may not treat extension-provided new-tab pages exactly like the native new-tab page for browser UI rules such as “show bookmarks bar only on new tab.”

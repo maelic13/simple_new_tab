@@ -485,6 +485,15 @@ button:disabled {
   white-space: nowrap;
 }
 
+@supports (-moz-appearance: none) {
+  .shortcut-name {
+    padding-block: 1px 2px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.28;
+  }
+}
+
 .mode-iconOnly .shortcut-icon-shell {
   width: min(var(--shortcut-icon-only-shell, 92px), 50cqw);
   height: min(var(--shortcut-icon-only-shell, 92px), 50cqw);
