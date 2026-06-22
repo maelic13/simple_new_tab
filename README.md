@@ -1,6 +1,6 @@
 # Simple New Tab
 
-A Manifest V3 new-tab extension for Chromium and Firefox with a compact speed-dial layout, browser sync metadata, custom icons, first-run setup, import/export backups, configurable themes, and background customization.
+A Manifest V3 compatible new-tab extension for Chromium and Firefox with a compact speed-dial layout, browser sync metadata, custom icons, first-run setup, import/export backups, configurable themes, and background customization.
 
 ## Features
 
@@ -66,6 +66,8 @@ After rebuilding, reload the temporary extension from `about:debugging`.
 pnpm install
 pnpm test
 pnpm build
+pnpm build:firefox
+pnpm lint:firefox
 ```
 
 Useful scripts:
@@ -98,12 +100,14 @@ Useful scripts:
    pnpm lint:firefox
    ```
 
-3. Load `dist` as an unpacked extension and smoke-test:
+3. Load `dist` as an unpacked extension in Chromium and `dist-firefox/manifest.json` as a temporary add-on in Firefox, then smoke-test:
 
    | Flow | Expected |
    |---|---|
-   | First new tab | Welcome setup appears once. |
+   | First new tab | Welcome setup appears once in Chromium and Firefox. |
+   | New-tab favicon | Browser tab shows the Simple New Tab icon. |
    | Toolbar popup | Current page can be added with chosen name/icon. |
+   | Shortcut labels | Text is readable and not clipped in Chromium and Firefox. |
    | Settings import/export | JSON backup restores settings and shortcuts. |
    | Background modes | Color, URL, and Upload preview immediately and save only on Apply. |
    | Reset defaults | Clears shortcuts and shows setup again. |
@@ -141,7 +145,7 @@ Build and package for Chromium:
 ```powershell
 pnpm build
 New-Item -ItemType Directory -Path release -Force
-Compress-Archive -Path dist\* -DestinationPath release\simple-new-tab-1.0.0.zip -Force
+Compress-Archive -Path dist\* -DestinationPath release\simple-new-tab-1.1.0.zip -Force
 ```
 
 The ZIP should contain `manifest.json` at its root.
@@ -152,7 +156,7 @@ Build and package for Firefox:
 pnpm build:firefox
 pnpm lint:firefox
 New-Item -ItemType Directory -Path release -Force
-Compress-Archive -Path dist-firefox\* -DestinationPath release\simple-new-tab-firefox-1.0.0.zip -Force
+Compress-Archive -Path dist-firefox\* -DestinationPath release\simple-new-tab-firefox-1.1.0.zip -Force
 ```
 
 Firefox packages for permanent installation must be signed by Mozilla Add-ons.

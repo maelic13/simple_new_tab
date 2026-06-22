@@ -1,13 +1,13 @@
 {
   "name": "simple-new-tab",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:firefox": "vite --mode firefox",
     "build": "tsc --noEmit && vite build",
-    "build:firefox": "tsc --noEmit && vite build --mode firefox",
+    "build:firefox": "tsc --noEmit && vite build --mode firefox && node scripts/patch-firefox-build.mjs",
     "lint:firefox": "pnpm dlx web-ext lint --source-dir dist-firefox",
     "test": "vitest run",
     "test:watch": "vitest"

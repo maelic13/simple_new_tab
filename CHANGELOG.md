@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.0 - 2026-06-22
+
+Firefox release and cross-browser packaging update.
+
+### Added
+
+- Firefox build target that outputs a dedicated `dist-firefox` package.
+- Firefox manifest metadata, including a stable Gecko add-on ID, minimum Firefox version, and no-data-collection declaration for Mozilla Add-ons submission.
+- Firefox extension lint script using Mozilla's `web-ext` linter.
+- Firefox build post-processing that disables Simple New Tab's unused raw HTML renderer path so Mozilla Add-ons validation is clean.
+- New-tab page favicon link so Firefox tabs show the Simple New Tab icon.
+- Documentation for Firefox temporary loading, release packaging, and browser-family sync behavior.
+
+### Changed
+
+- Release workflow now verifies Chromium and Firefox builds.
+- Privacy policy now refers to browser extension APIs and browser store policies instead of Chrome-only wording.
+- Firefox shortcut label rendering is adjusted to better match Chromium and prevent descender clipping.
+- Release package names now include version `1.1.0`.
+- Firefox package validation now completes with zero warnings.
+
+### Known Limitations
+
+- Chromium sync and Firefox sync are separate browser services; use export/import to move data between browser families.
+- Firefox `storage.sync` works for desktop Firefox with the same signed add-on ID, but not Firefox for Android.
+- Raster uploads remain local and do not sync.
+
+### Verification
+
+- `pnpm test`
+- `pnpm build`
+- `pnpm build:firefox`
+- `pnpm lint:firefox -- --output json`
+
 ## 1.0.0 - 2026-06-18
 
 Initial release of Simple New Tab.

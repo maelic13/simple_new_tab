@@ -1,6 +1,6 @@
 # Privacy Policy for Simple New Tab
 
-Effective date: June 18, 2026
+Effective date: June 22, 2026
 
 Simple New Tab is a browser extension that replaces the new tab page with a customizable speed-dial page.
 
@@ -14,7 +14,7 @@ Simple New Tab stores the data needed to provide its speed-dial functionality:
 - layout, theme, appearance, and background settings
 - import/export backup files created by the user
 
-This data is stored in the browser using Chrome extension storage APIs. When browser sync is enabled, shortcut metadata and settings may sync through the browser account according to the browser's sync settings.
+This data is stored in the browser using extension storage APIs. When browser sync is enabled, shortcut metadata and settings may sync through the browser account according to the browser's sync settings.
 
 Uploaded raster images are stored locally in the browser's IndexedDB storage on the device where they were uploaded. They are not sent to the developer.
 
@@ -34,10 +34,12 @@ Simple New Tab does not transfer user data to third parties, except where requir
 
 Simple New Tab does not execute remote code. All application JavaScript is bundled with the extension package. Remote resources are used only as image assets, such as favicons, shortcut icons, and background images.
 
-## Chrome Web Store Limited Use
+## Browser Store Policies
 
-The use of information received from Chrome APIs adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements.
+The use of information received from browser extension APIs adheres to the applicable browser store user data policies, including the Chrome Web Store User Data Policy and its Limited Use requirements.
+
+For Firefox Add-ons data collection disclosure, Simple New Tab declares that it does not collect user data.
 
 ## Contact
 
-For privacy questions, use the publisher contact email listed on the Chrome Web Store listing.
+For privacy questions, use the publisher contact email listed on the browser store listing.

@@ -6,7 +6,7 @@ export function createManifest(targetBrowser: TargetBrowser = "chrome") {
   return defineManifest({
     manifest_version: 3,
     name: "Simple New Tab",
-    version: "1.0.0",
+    version: "1.1.0",
     description: "A customizable speed-dial new tab page with sync, backups, themes, and quick shortcut creation.",
     permissions: ["storage", "activeTab", "downloads"],
     icons: {
