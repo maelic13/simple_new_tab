@@ -32,7 +32,7 @@ export function createManifest(targetBrowser: TargetBrowser = "chrome") {
       ? {
           browser_specific_settings: {
             gecko: {
-              id: "{a5c8a3c0-3842-4a39-ae54-20b9ef7ff40b}",
+              id: "{6a2d1e19-e073-42eb-8a6d-d5b2ea0cc1d5}",
               strict_min_version: "142.0",
               data_collection_permissions: {
                 required: ["none" as const]

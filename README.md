@@ -169,3 +169,7 @@ Firefox packages for permanent installation must be signed by Mozilla Add-ons.
 - The browser controls whether export opens a native Save As picker. The extension requests Save As through the File System Access API or extension downloads API when available.
 - The extension intentionally avoids broad host permissions. Some websites may expose fewer icon candidates if their metadata cannot be fetched cross-origin; root favicon candidates, favicon fallback, and user-selected icon URLs still work.
 - Some browsers, including Brave, may not treat extension-provided new-tab pages exactly like the native new-tab page for browser UI rules such as “show bookmarks bar only on new tab.”
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).

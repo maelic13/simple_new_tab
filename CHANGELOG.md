@@ -12,6 +12,7 @@ Firefox release and cross-browser packaging update.
 - Firefox build post-processing that disables Simple New Tab's unused raw HTML renderer path so Mozilla Add-ons validation is clean.
 - New-tab page favicon link so Firefox tabs show the Simple New Tab icon.
 - Documentation for Firefox temporary loading, release packaging, and browser-family sync behavior.
+- GPL-3.0-or-later license metadata and license file.
 
 ### Changed
 
